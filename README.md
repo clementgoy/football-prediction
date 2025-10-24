@@ -1,0 +1,4 @@
+- Données brutes dans `data/` (non versionnées dans git).
+- EDA & protos dans `notebooks/`.
+- Code dans `src/`.
+- Suivi d'expé: MLflow (par défaut local ./mlruns) + CSV `logs/experiments.csv`.

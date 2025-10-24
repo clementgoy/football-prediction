@@ -1,0 +1,19 @@
+random_seed: 42
+cv:
+  n_splits: 5
+  strategy: stratified # sur y_train['label'] (home/draw/away) si dispo
+data:
+  train_home: data/train_home_team_statistics_df.csv
+  train_away: data/train_away_team_statistics_df.csv
+  test_home:  data/test_home_team_statistics_df.csv
+  test_away:  data/test_away_team_statistics_df.csv
+  y_train:    data/Y_train_1rknArQ.csv
+model:
+  type: HistGradientBoostingClassifier
+  params:
+    max_iter: 300
+    learning_rate: 0.05
+    random_state: 42
+runtime:
+  mlflow_tracking_uri: ./mlruns
+  experiment_name: "baseline_multiclass"

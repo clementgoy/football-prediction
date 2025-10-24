@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.venv/
+.mlruns/
+mlruns/
+data/
+outputs/
+logs/
+.ipynb_checkpoints/
+.venv/
+__pycache__/
+*.pyc
+.env
+node_modules/
