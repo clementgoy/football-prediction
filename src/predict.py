@@ -23,18 +23,16 @@ def align_columns(df: pd.DataFrame, feature_list: list[str]) -> pd.DataFrame:
       - respecte l'ordre des colonnes du train
     """
     out = df.copy()
-    # ajoute manquantes
     missing = [c for c in feature_list if c not in out.columns]
     for c in missing:
         out[c] = 0.0
-    # garde uniquement la liste et dans le bon ordre
     out = out[feature_list]
     return out
 
 
 def main(config_path: str):
     # chemins
-    test_path = "data/x_test_clean.csv"
+    test_path = "data/processed/test_merged.csv"
     model_path = "outputs/models/model.joblib"
     feat_path = "outputs/logs/features.txt"
     out_dir = "outputs/submissions"
@@ -49,60 +47,57 @@ def main(config_path: str):
         raise FileNotFoundError(f"Fichier test introuvable: {test_path}")
 
     # charge test
-    Xtest = pd.read_csv(test_path)
-    if "id" not in Xtest.columns:
-        raise ValueError("'id' manquant dans data/x_test_clean.csv")
-    ids = Xtest["id"].values
+    df = pd.read_csv(test_path)
+    if "ID" not in df.columns:
+        raise ValueError("'ID' manquant dans data/processed/test_merged.csv")
+
+    ids = df["ID"].values
+
+    # features numériques uniquement, sans ID
+    X = df.drop(columns=["ID"]).select_dtypes(include=["number"]).copy()
+    X = X.astype("float32").fillna(0.0)
 
     # charge liste de features du train (pour aligner)
     feature_list = load_feature_list(feat_path)
     if not feature_list:
-        # fallback: toutes les colonnes numériques sauf 'id'
-        feature_list = (
-            Xtest.drop(columns=["id"])
-            .select_dtypes(include=["number"])
-            .columns.tolist()
-        )
+        # fallback (moins sûr) : toutes les colonnes numériques actuelles
+        feature_list = X.columns.tolist()
 
-    # ne garder que numérique puis aligner
-    Xnum = Xtest.select_dtypes(include=["number"]).copy()
-    if "id" in Xnum.columns:
-        Xnum = Xnum.drop(columns=["id"])
-    Xnum = Xnum.astype("float32").fillna(0.0)
-    Xnum = align_columns(Xnum, feature_list)
+    X = align_columns(X, feature_list)
 
     # charge modèle
     model = joblib.load(model_path)
 
-    # proba dans l'ordre des classes du modèle
+    # proba dans l'ordre des classes du modèle (attendues 0,1,2 = home,draw,away)
     if not hasattr(model, "predict_proba"):
         raise AttributeError("Le modèle ne supporte pas predict_proba.")
+    proba = model.predict_proba(X)  # (N, n_classes)
 
-    proba = model.predict_proba(Xnum)  # shape (N, n_classes)
+    # classes_: on veut [0,1,2] -> [home,draw,away]
     classes = list(getattr(model, "classes_", range(proba.shape[1])))
 
-    # On veut l'ordre: [home, draw, away] = classes 0,1,2 (cf. train: argmax([home,draw,away]))
-    def col_idx(c):
+    def idx_of(c):
         try:
             return classes.index(c)
         except ValueError:
-            # si les classes ne sont pas 0/1/2, on normalise au mieux
             return None
 
-    idx_home = col_idx(0)
-    idx_draw = col_idx(1)
-    idx_away = col_idx(2)
+    idx_home = idx_of(0)
+    idx_draw = idx_of(1)
+    idx_away = idx_of(2)
 
-    # sécurité si l'ordre n'est pas standard
     if None in (idx_home, idx_draw, idx_away):
-        # réindexe via tri des classes si besoin
-        order = np.argsort(classes)  # suppose classes triables et correspondent à 0,1,2
-        proba = proba[:, order]
-        idx_home, idx_draw, idx_away = 0, 1, 2
+        # fallback: tri des classes si elles sont numériques mais désordonnées
+        try:
+            order = np.argsort(classes)
+            proba = proba[:, order]
+            idx_home, idx_draw, idx_away = 0, 1, 2
+        except Exception as e:
+            raise RuntimeError(f"Impossible d'aligner les classes du modèle: {classes}") from e
 
     sub = pd.DataFrame(
         {
-            "id": ids,
+            "id": ids,  # la plateforme attend souvent 'id'
             "home": proba[:, idx_home],
             "draw": proba[:, idx_draw],
             "away": proba[:, idx_away],

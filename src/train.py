@@ -10,45 +10,36 @@ from sklearn.metrics import accuracy_score
 import joblib
 
 
-def load_X_y(
-    x_path: str = "data/x_train_clean.csv",
-    y_path: str = "data/y_train_aligned.csv",
-):
-    # X: doit contenir une colonne 'id' + features numériques
-    X = pd.read_csv(x_path)
-    if "id" not in X.columns:
-        raise ValueError(f"'id' manquant dans {x_path}")
-
-    # y: colonnes ['id', 'home','draw','away']
-    y = pd.read_csv(y_path)
-    expected = {"id", "home", "draw", "away"}
-    if not expected.issubset(set(y.columns)):
+def load_train_processed(path: str = "data/processed/train_merged.csv"):
+    df = pd.read_csv(path)
+    # Vérifs de base
+    need_y = {"y_home_win", "y_draw", "y_away_win"}
+    if "ID" not in df.columns:
+        raise ValueError(f"'ID' manquant dans {path}")
+    if not need_y.issubset(set(df.columns)):
         raise ValueError(
-            f"Colonnes attendues dans {y_path}: {sorted(expected)} ; trouvées: {y.columns.tolist()}"
+            f"Colonnes cibles manquantes dans {path}. Attendu: {sorted(need_y)}"
         )
 
-    # garder l’intersection des ids (sécurité)
-    ids = pd.Series(sorted(set(X["id"]).intersection(set(y["id"]))), name="id")
-    X = ids.to_frame().merge(X, on="id", how="left")
-    y = ids.to_frame().merge(y, on="id", how="left")
+    # Cible 0/1/2 depuis one-hot
+    y = np.argmax(df[["y_home_win", "y_draw", "y_away_win"]].values, axis=1).astype(int)
 
-    # cible 0/1/2 depuis les probas
-    y_target = np.argmax(y[["home", "draw", "away"]].values, axis=1).astype(int)
+    # Features = toutes colonnes sauf targets
+    X = df.drop(columns=["y_home_win", "y_draw", "y_away_win"]).copy()
 
-    return X, y_target
+    # On garde ID séparément (pas une feature)
+    if "ID" in X.columns:
+        X = X.set_index("ID", drop=True)  # index = ID, n'entre pas dans le modèle
+
+    # Numérique uniquement, types & NaN
+    Xnum = X.select_dtypes(include=["number"]).astype("float32").fillna(0.0)
+
+    return Xnum, y
 
 
 def main(config_path: str):
     # Chargement
-    X, y = load_X_y()
-
-    # Sélection numérique + drop id
-    feature_cols = [c for c in X.columns if c != "id"]
-    Xnum = X[feature_cols].select_dtypes(include=["number"]).copy()
-
-    # Harmonisation des types + NaN
-    Xnum = Xnum.astype("float32")
-    Xnum = Xnum.fillna(0.0)
+    Xnum, y = load_train_processed()
 
     # Split
     Xtr, Xva, ytr, yva = train_test_split(
@@ -78,15 +69,14 @@ def main(config_path: str):
         "n_train": int(Xtr.shape[0]),
         "n_valid": int(Xva.shape[0]),
         "n_features": int(Xnum.shape[1]),
-        "x_path": "data/x_train_clean.csv",
-        "y_path": "data/y_train_aligned.csv",
+        "train_path": "data/processed/train_merged.csv",
         "model": "HistGradientBoostingClassifier",
         "params": {"max_iter": 300, "learning_rate": 0.05, "random_state": 42},
     }
     with open("outputs/logs/metrics.json", "w") as f:
         json.dump(metrics, f, indent=2)
 
-    # petit aperçu des features pour debug reproductible
+    # sauvegarde la liste des features utilisées (pour aligner au moment du predict)
     with open("outputs/logs/features.txt", "w") as f:
         for c in Xnum.columns:
             f.write(c + "\n")
