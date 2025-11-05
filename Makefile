@@ -1,9 +1,12 @@
 
 PY=.venv/bin/python
 PIP=.venv/bin/pip
+TRAIN_DIR ?= data/Train_Data
+TEST_DIR  ?= data/Test_Data
+Y_TRAIN   ?= data/Y_train_1rknArQ.csv
+OUT_DIR   ?= data/processed
 
 .PHONY: setup mlflow-ui train predict submit clean
-
 
 setup:
 	python -m venv .venv
@@ -12,6 +15,16 @@ setup:
 
 mlflow-ui:
 	$(PY) -m mlflow ui --backend-store-uri ./mlruns --host 127.0.0.1 --port 5000
+
+.PHONY: merge
+merge:
+	@echo "Merging raw CSVs into modelling tables"
+	$(PY) -m src.merge_data \
+		--train-dir $(TRAIN_DIR) \
+		--test-dir  $(TEST_DIR) \
+		--y-train   $(Y_TRAIN) \
+		--out-dir   $(OUT_DIR)
+	@echo "Done. Files in $(OUT_DIR)/ (train_merged.csv, test_merged.csv, schema.json)"
 
 train:
 	@echo "[make] TRAIN"
