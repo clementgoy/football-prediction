@@ -28,7 +28,7 @@ def enforce_prefix(df: pd.DataFrame, prefix: str, exclude: Tuple[str, ...] = ("I
 
 #Read a CSV with sane defaults and short progress logs.
 def read_csv(path: Path, usecols: Optional[list[str]] = None) -> pd.DataFrame:
-    info("Loading {path.name} ...")
+    info(f"Loading {path.name} ...")
     df = pd.read_csv(path, low_memory=False, usecols=usecols)
     ok(f"{path.name}: {df.shape[0]} rows x {df.shape[1]} cols")
     return df 
@@ -313,12 +313,19 @@ def main() -> None:
         lenient=args.lenient,
     )
 
-    #Targets 
+    # Targets
     y = load_y_train(args.y_train)
     if y is not None:
-        train = safe_merge(train, y, how='inner')
-        ok("Targets merged into train")
-        train = clean_unique_by_id(train, id_col='ID')
+        train_ids = train[['ID']].sort_values('ID').reset_index(drop=True)
+        y_aligned = train_ids.merge(y, on='ID', how='left')
+
+        n_missing = int(y_aligned[['HOME_WINS','DRAW','AWAY_WINS']].isna().any(axis=1).sum())
+        info(f"Targets aligned to train IDs. Missing labels: {n_missing}")
+
+        out_dir = args.out_dir if args.out_dir else Path('data/processed')
+        out_dir.mkdir(parents=True, exist_ok=True)
+        y_aligned.to_csv(out_dir / 'y_train_aligned.csv', index=False)
+        ok("Saved y_train_aligned.csv (kept separate to avoid leakage)")
 
     info("Building TEST split …")
     test = build_split(

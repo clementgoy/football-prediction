@@ -1,4 +1,3 @@
-# src/train.py
 import os, json, argparse
 from datetime import datetime
 
@@ -17,7 +16,10 @@ def load_train_processed():
     set_seeds(42)
 
     X_raw = pd.read_csv("data/processed/train_merged.csv")
-    y_raw = pd.read_csv("data/Y_train_1rknArQ.csv")
+    y_raw = pd.read_csv("data/processed/y_train_aligned.csv")
+
+    bad = [c for c in X_raw.columns if c in ("HOME_WINS","DRAW","AWAY_WINS")]
+    assert not bad, f"Leakage: {bad} found in X_raw!"
 
     X, y = build_Xy(X_raw, y_raw)
     
@@ -63,6 +65,10 @@ def main(config_path: str):
         for c in Xnum.columns:
             f.write(c + "\n")
 
+    #val_acc : accuracy on validation set
+    #n_features : number of features used for training
+    #train : number of training samples
+    #valid : number of validation samples
     print(
         f"[train] ok | val_acc={acc:.4f} | n_features={Xnum.shape[1]} | "
         f"train={Xtr.shape[0]} valid={Xva.shape[0]}"
