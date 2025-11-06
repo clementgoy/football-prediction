@@ -1,116 +1,133 @@
-# src/predict.py
-import os
+# src/predict_hgbc.py
+# -*- coding: utf-8 -*-
+"""
+Prédiction pour l'artifact entraîné par train_hgbc.py
+
+- Charge outputs/models/model.joblib (dict: model, selector, drop_cols, features)
+- Construit X_test comme dans le train:
+    * numeric only -> float32 -> fillna(0.0)
+    * drop des colonnes corrélées (drop_cols)
+    * aligne sur 'features' (colonnes sélectionnées par VarianceThreshold)
+- Prédit avec le modèle HGBC et génère le CSV de soumission:
+    ID, HOME, DRAW, AWAY (one-hot par défaut, ou proba avec --submit-proba)
+
+Usage:
+  python -m src.predict_hgbc \
+    --test-csv data/processed/test_merged.csv \
+    --artifact outputs/models/model.joblib \
+    --out-csv outputs/submissions/submission_hgbc.csv
+"""
+
 import argparse
-import joblib
+from pathlib import Path
+import sys
 import numpy as np
 import pandas as pd
+from joblib import load
 
+VALID_CLASS_NAMES = ["HOME_WINS", "DRAW", "AWAY_WINS"]
 
-def load_feature_list(path: str) -> list[str]:
-    """Lit la liste des features (une par ligne) écrite pendant le train."""
-    if not os.path.exists(path):
-        return []
-    with open(path, "r") as f:
-        feats = [ln.strip() for ln in f if ln.strip()]
-    return feats
+def parse_args():
+    p = argparse.ArgumentParser(description="Predict HGBC (artifact de train_hgbc.py).")
+    p.add_argument("--test-csv", required=True, help="Chemin du CSV test fusionné (avec la colonne ID).")
+    p.add_argument("--artifact", default="outputs/models/model.joblib", help="Artifact joblib sauvegardé au train.")
+    p.add_argument("--out-csv", required=True, help="Chemin du CSV de soumission à écrire.")
+    p.add_argument("--id-col", default="ID", help="Nom de la colonne identifiant (défaut: ID).")
+    p.add_argument("--submit-proba", action="store_true",
+                   help="Écrit les probabilités au lieu du one-hot.")
+    p.add_argument("--class-order", default="HOME,DRAW,AWAY",
+                   help="Ordre des classes dans la soumission (défaut: HOME,DRAW,AWAY).")
+    return p.parse_args()
 
-
-def align_columns(df: pd.DataFrame, feature_list: list[str]) -> pd.DataFrame:
-    """
-    Aligne df sur feature_list :
-      - ajoute les features manquantes (remplies à 0)
-      - supprime les colonnes en trop
-      - respecte l'ordre des colonnes du train
-    """
+def coerce_numeric(df, id_col):
     out = df.copy()
-    missing = [c for c in feature_list if c not in out.columns]
-    for c in missing:
-        out[c] = 0.0
-    out = out[feature_list]
+    for c in out.columns:
+        if c == id_col:
+            continue
+        if not pd.api.types.is_numeric_dtype(out[c]):
+            out[c] = pd.to_numeric(out[c], errors="coerce")
+    out = out.fillna(0.0)
     return out
 
+def map_proba_to_order(model_classes, proba, wanted_order):
+    cls = list(model_classes)
+    # Cas fréquent: classes = [0,1,2] -> HOME, DRAW, AWAY
+    if all(isinstance(x, (int, np.integer)) for x in cls) and set(cls) == {0,1,2}:
+        model_order = ["HOME_WINS", "DRAW", "AWAY_WINS"]
+    else:
+        model_order = [str(x).upper() for x in cls]
 
-def main(config_path: str):
-    # chemins
-    test_path = "data/processed/test_merged.csv"
-    model_path = "outputs/models/model.joblib"
-    feat_path = "outputs/logs/features.txt"
-    out_dir = "outputs/submissions"
-    out_csv = os.path.join(out_dir, "submission.csv")
+    if set(model_order) != set(VALID_CLASS_NAMES):
+        raise ValueError(f"Classes du modèle {model_order} inattendues (attendues: {VALID_CLASS_NAMES}).")
 
-    # vérifs
-    if not os.path.exists(model_path):
-        raise FileNotFoundError(
-            f"Modèle introuvable: {model_path}. Entraîne d'abord avec `make train`."
-        )
-    if not os.path.exists(test_path):
-        raise FileNotFoundError(f"Fichier test introuvable: {test_path}")
+    idx = [model_order.index(name) for name in wanted_order]
+    return proba[:, idx]
 
-    # charge test
-    df = pd.read_csv(test_path)
-    if "ID" not in df.columns:
-        raise ValueError("'ID' manquant dans data/processed/test_merged.csv")
+def main():
+    args = parse_args()
+    class_order = [x.strip().upper() for x in args.class_order.split(",")]
+    if set(class_order) != set(VALID_CLASS_NAMES):
+        raise ValueError(f"--class-order doit être une permutation de {VALID_CLASS_NAMES}")
 
-    ids = df["ID"].values
+    # 1) Charger artifact
+    artifact_path = Path(args.artifact)
+    if not artifact_path.exists():
+        print(f"[err] Artifact introuvable: {artifact_path}", file=sys.stderr)
+        sys.exit(2)
+    artifact = load(artifact_path)
+    model = artifact["model"]
+    drop_cols = artifact.get("drop_cols", [])
+    selected_features = artifact["features"]  
+    
+    # 2) Charger test
+    test_df = pd.read_csv(args.test_csv)
+    if args.id_col not in test_df.columns:
+        raise ValueError(f"Colonne ID '{args.id_col}' introuvable dans {args.test_csv}")
+    ids = test_df[args.id_col].copy()
 
-    # features numériques uniquement, sans ID
-    X = df.drop(columns=["ID"]).select_dtypes(include=["number"]).copy()
-    X = X.astype("float32").fillna(0.0)
+    # 3) Pipeline minimal identique au train
+    test_df = coerce_numeric(test_df, args.id_col)
+    feats = test_df.drop(columns=[args.id_col], errors="ignore")
 
-    # charge liste de features du train (pour aligner)
-    feature_list = load_feature_list(feat_path)
-    if not feature_list:
-        # fallback (moins sûr) : toutes les colonnes numériques actuelles
-        feature_list = X.columns.tolist()
+    # Drop des colonnes fortement corrélées (même liste qu'au train)
+    feats = feats.drop(columns=[c for c in drop_cols if c in feats.columns], errors="ignore")
 
-    X = align_columns(X, feature_list)
+    # Aligner sur les features sélectionnées par VarianceThreshold au train
+    # -> ajoute 0.0 pour les manquantes, supprime l'extra, impose l'ordre
+    for c in selected_features:
+        if c not in feats.columns:
+            feats[c] = 0.0
+    X = feats[selected_features].astype(np.float32)
 
-    # charge modèle
-    model = joblib.load(model_path)
+    # 4) Prédire
+    if hasattr(model, "predict_proba"):
+        proba = model.predict_proba(X)
+        proba = map_proba_to_order(getattr(model, "classes_", [0,1,2]), proba, class_order)
+    else:
+        # Sécurité (peu probable avec HGBC)
+        y_pred = model.predict(X)
+        inv = {name:i for i,name in enumerate(class_order)}
+        proba = np.zeros((len(y_pred), 3), dtype=float)
+        for r, y in enumerate(y_pred):
+            name = ("HOME_WINS", "DRAW", "AWAY_WINS")[int(y)] if isinstance(y, (int,np.integer)) else str(y).upper()
+            proba[r, inv.get(name, 0)] = 1.0
 
-    # proba dans l'ordre des classes du modèle (attendues 0,1,2 = home,draw,away)
-    if not hasattr(model, "predict_proba"):
-        raise AttributeError("Le modèle ne supporte pas predict_proba.")
-    proba = model.predict_proba(X)  # (N, n_classes)
+    # 5) Construire soumission
+    if args.submit_proba:
+        submit = pd.DataFrame(proba, columns=class_order)
+    else:
+        argmax = np.argmax(proba, axis=1)
+        onehot = np.zeros_like(proba, dtype=int)
+        onehot[np.arange(len(argmax)), argmax] = 1
+        submit = pd.DataFrame(onehot, columns=class_order)
 
-    # classes_: on veut [0,1,2] -> [home,draw,away]
-    classes = list(getattr(model, "classes_", range(proba.shape[1])))
+    submit.insert(0, args.id_col, ids.values)
 
-    def idx_of(c):
-        try:
-            return classes.index(c)
-        except ValueError:
-            return None
-
-    idx_home = idx_of(0)
-    idx_draw = idx_of(1)
-    idx_away = idx_of(2)
-
-    if None in (idx_home, idx_draw, idx_away):
-        # fallback: tri des classes si elles sont numériques mais désordonnées
-        try:
-            order = np.argsort(classes)
-            proba = proba[:, order]
-            idx_home, idx_draw, idx_away = 0, 1, 2
-        except Exception as e:
-            raise RuntimeError(f"Impossible d'aligner les classes du modèle: {classes}") from e
-
-    sub = pd.DataFrame(
-        {
-            "id": ids,  # la plateforme attend souvent 'id'
-            "home": proba[:, idx_home],
-            "draw": proba[:, idx_draw],
-            "away": proba[:, idx_away],
-        }
-    )
-
-    os.makedirs(out_dir, exist_ok=True)
-    sub.to_csv(out_csv, index=False)
-    print(f"[predict] ok -> {out_csv} | shape={sub.shape}")
-
+    # 6) Sauvegarde
+    out_path = Path(args.out_csv)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    submit.to_csv(out_path, index=False)
+    print(f"[ok] Soumission écrite -> {out_path.resolve()}")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--config", type=str, default="configs/base.yaml")
-    args = parser.parse_args()
-    main(args.config)
+    main()

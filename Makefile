@@ -34,14 +34,18 @@ train-hgbc:
 train-lgbm:
 	@echo "[make] TRAIN"
 	$(PY) -m src.train_lgbm \
-	--train-csv data/processed/train_merged.csv \
-	--y-csv    data/processed/y_train_aligned.csv \
-	--model-out outputs/models/lgbm.pkl
+		--train-csv data/processed/train_merged.csv \
+		--y-csv    data/processed/y_train_aligned.csv \
+		--model-out outputs/models/lgbm.pkl
 
 predict:
 	@echo "[make] PREDICT"
-	@mkdir -p outputs/submissions
-	$(PY) -m src.predict --config configs/base.yaml
+	$(PY) -m src.predict \
+		--test-csv data/processed/test_merged.csv \
+		--artifact outputs/models/model.joblib \
+		--out-csv outputs/submissions/submission_hgbc.csv \
+		--class-order HOME_WINS,DRAW,AWAY_WINS
+
 
 submit:
 	@ls -1 outputs/submissions/*.csv | tail -n1
