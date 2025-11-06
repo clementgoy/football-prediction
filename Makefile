@@ -26,10 +26,17 @@ merge:
 		--out-dir   $(OUT_DIR)
 	@echo "Done. Files in $(OUT_DIR)/ (train_merged.csv, test_merged.csv, schema.json)"
 
-train:
+train-hgbc:
 	@echo "[make] TRAIN"
 	@mkdir -p outputs/models outputs/logs outputs/submissions
-	$(PY) -m src.train --config configs/base.yaml
+	$(PY) -m src.train_hgbc --config configs/base.yaml
+
+train-lgbm:
+	@echo "[make] TRAIN"
+	$(PY) -m src.train_lgbm \
+	--train-csv data/processed/train_merged.csv \
+	--y-csv    data/processed/y_train_aligned.csv \
+	--model-out outputs/models/lgbm.pkl
 
 predict:
 	@echo "[make] PREDICT"

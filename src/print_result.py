@@ -2,7 +2,7 @@ import textwrap
 
 def print_report(train_acc, val_acc, hold_acc, cm, clf_report, top_features, X, X_tr_sel, X_va_sel, X_ho_sel):
     print("\n" + "="*70)
-    print("🏆  MODELE : HistGradientBoostingClassifier — Rapport d’évaluation")
+    print("🏆 Rapport d’évaluation")
     print("="*70)
 
     # Résumé global
@@ -30,12 +30,4 @@ def print_report(train_acc, val_acc, hold_acc, cm, clf_report, top_features, X, 
     for i, feat in enumerate(top_features[:10], 1):
         print(f"  {i:>2}. {feat}")
 
-    print("\n🧠  Interprétation rapide")
-    print("-"*70)
-    print(textwrap.fill(
-        "Le modèle apprend correctement les victoires à domicile, mais peine encore sur les matchs nuls "
-        "et les victoires à l’extérieur. Les performances (≈47%) sont cohérentes avec une baseline robuste "
-        "sans fuite de données. Prochaines étapes : rééquilibrer les classes et tester LightGBM pour gagner "
-        "en stabilité.", width=75
-    ))
     print("="*70 + "\n")
