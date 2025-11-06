@@ -302,7 +302,7 @@ def main() -> None:
     need_train = [train_home_team, train_away_team]
     need_test = [test_home_team, test_away_team]
     if any(p is None for p in need_train + need_test):
-        raise SystemExist("Missing required team CSVs. pass --*-team or set --*-dir to a folder with those files.")
+        raise SystemExit("Missing required team CSVs. pass --*-team or set --*-dir to a folder with those files.")
 
     info("Building TRAIN split ...")
     train = build_split(

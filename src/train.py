@@ -9,60 +9,43 @@ from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.metrics import accuracy_score
 import joblib
 
+from src.build_dataset import build_Xy
+from src.utils import set_seeds
 
-def load_train_processed(path: str = "data/processed/train_merged.csv"):
-    df = pd.read_csv(path)
-    # Vérifs de base
-    need_y = {"y_home_win", "y_draw", "y_away_win"}
-    if "ID" not in df.columns:
-        raise ValueError(f"'ID' manquant dans {path}")
-    if not need_y.issubset(set(df.columns)):
-        raise ValueError(
-            f"Colonnes cibles manquantes dans {path}. Attendu: {sorted(need_y)}"
-        )
 
-    # Cible 0/1/2 depuis one-hot
-    y = np.argmax(df[["y_home_win", "y_draw", "y_away_win"]].values, axis=1).astype(int)
+def load_train_processed():
+    set_seeds(42)
 
-    # Features = toutes colonnes sauf targets
-    X = df.drop(columns=["y_home_win", "y_draw", "y_away_win"]).copy()
+    X_raw = pd.read_csv("data/processed/train_merged.csv")
+    y_raw = pd.read_csv("data/Y_train_1rknArQ.csv")
 
-    # On garde ID séparément (pas une feature)
-    if "ID" in X.columns:
-        X = X.set_index("ID", drop=True)  # index = ID, n'entre pas dans le modèle
+    X, y = build_Xy(X_raw, y_raw)
+    
+    X = X.select_dtypes(include=["number"]).astype("float32").fillna(0.0)
 
-    # Numérique uniquement, types & NaN
-    Xnum = X.select_dtypes(include=["number"]).astype("float32").fillna(0.0)
-
-    return Xnum, y
+    return X, y
 
 
 def main(config_path: str):
-    # Chargement
     Xnum, y = load_train_processed()
 
-    # Split
     Xtr, Xva, ytr, yva = train_test_split(
         Xnum, y, test_size=0.2, random_state=42, stratify=y
     )
 
-    # Modèle
     model = HistGradientBoostingClassifier(
         max_iter=300, learning_rate=0.05, random_state=42
     )
     model.fit(Xtr, ytr)
 
-    # Métriques
     pred = model.predict(Xva)
     acc = accuracy_score(yva, pred)
 
-    # Sauvegardes
     os.makedirs("outputs/models", exist_ok=True)
     os.makedirs("outputs/logs", exist_ok=True)
 
     joblib.dump(model, "outputs/models/model.joblib")
 
-    # log simple + infos utiles
     metrics = {
         "timestamp": datetime.now().isoformat(timespec="seconds"),
         "val_accuracy": float(acc),
@@ -76,7 +59,6 @@ def main(config_path: str):
     with open("outputs/logs/metrics.json", "w") as f:
         json.dump(metrics, f, indent=2)
 
-    # sauvegarde la liste des features utilisées (pour aligner au moment du predict)
     with open("outputs/logs/features.txt", "w") as f:
         for c in Xnum.columns:
             f.write(c + "\n")
