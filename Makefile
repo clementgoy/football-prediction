@@ -38,7 +38,7 @@ train-lgbm:
 		--y-csv    data/processed/y_train_aligned.csv \
 		--model-out outputs/models/lgbm.pkl
 
-predict:
+predict-hgbc:
 	@echo "[make] PREDICT"
 	$(PY) -m src.predict \
 		--test-csv data/processed/test_merged.csv \
@@ -46,6 +46,15 @@ predict:
 		--out-csv outputs/submissions/submission_hgbc.csv \
 		--class-order HOME_WINS,DRAW,AWAY_WINS
 
+predict-lgbm:
+	@echo "[make] PREDICT"
+	$(PY) -m src.predict_lgbm \
+		--test-csv data/processed/test_merged.csv \
+		--model outputs/models/lgbm.pkl \
+		--out-csv outputs/submissions/submission_lgbm.csv \
+		--id-col ID \
+		--alpha-draw 1.0 \
+		--submit-onehot
 
 submit:
 	@ls -1 outputs/submissions/*.csv | tail -n1
