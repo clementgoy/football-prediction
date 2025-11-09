@@ -7,6 +7,16 @@ from typing import Dict, Optional, Tuple
 
 import pandas as pd
 
+# === FIXED PATHS (no CLI args) ===
+DATA_ROOT = Path("Data")
+TRAIN_DIR = DATA_ROOT / "Train_Data"
+TEST_DIR  = DATA_ROOT / "Test_Data"
+
+Y_TRAIN_PATH = DATA_ROOT / "y_train_1rknArQ.csv" 
+Y_SUPP_PATH  = DATA_ROOT / "benchmark_and_extras" / "Y_train_supp.csv"
+
+OUT_DIR = DATA_ROOT / "processed"
+
 
 def info(msg: str) -> None:
     print(f"\n infooo : {msg}")
@@ -16,8 +26,9 @@ def ok(msg: str) -> None:
 
 #Return the first CSV file in *directory* whose filename contains a token. 
 #Used for lightweight auto-discovery when users pass only a folder.
+#Recursive so it goes even in the folders contains in the data folder (we want to keep the architercture of the challenge )
 def discover_file(directory: Path, contains: str) -> Optional[Path]:
-    candidates = sorted(p for p in directory.glob('*.csv') if contains in p.name )
+    candidates = sorted(p for p in directory.rglob('*.csv') if contains in p.name)
     return candidates[0] if candidates else None
 
 #Add a prefix to all columns except those in *exclude*.
@@ -197,6 +208,8 @@ def parse_args() -> argparse.Namespace:
 
     #Targets
     p.add_argument('--y-train', type=Path, default=None, help='Optional Y_train CSV (with ID + y_home_win,y_draw,y_away_win)')
+    p.add_argument('--y-train-supp', type=Path, default=None, help='Optional Y_train_supp CSV (with ID + GOAL_DIFF_HOME_AWAY)')
+
 
     #Behavior
     p.add_argument('--lenient', action='store_true', help='Use LEFT joins instead of INNER (keep more rows)')
@@ -249,6 +262,18 @@ def load_y_train(y_path: Optional[Path]) -> Optional[pd.DataFrame]:
         raise ValueError(f"Y_train missing columns: {missing}")
     return y[['ID', 'HOME_WINS', 'DRAW', 'AWAY_WINS']]
 
+def load_y_train_supp(y_supp_path: Optional[Path]) -> Optional[pd.DataFrame]:
+    if not y_supp_path:
+        info("No Y_train_supp provided – skipping supplementary target merge.")
+        return None
+    y = read_csv(y_supp_path)
+    need = {'ID', 'GOAL_DIFF_HOME_AWAY'}
+    missing = need - set(y.columns)
+    if missing:
+        raise ValueError(f"Y_train_supp missing columns: {missing}")
+    return y[['ID', 'GOAL_DIFF_HOME_AWAY']]
+
+
 
 #Write merged CSVs and a tiny schema.json for traceability.
 def save_artifacts(train_df: pd.DataFrame, test_df: pd.DataFrame, out_dir: Path) -> None: 
@@ -282,61 +307,92 @@ def save_artifacts(train_df: pd.DataFrame, test_df: pd.DataFrame, out_dir: Path)
 
 #Entry point: parse args → build train/test → optional targets → save.
 def main() -> None:
-    args = parse_args()
-    
+    # --- fixed-root discovery (no CLI) ---
     info("Discovery inputs ...")
-    discovered = discover_inputs(args.train_dir, args.test_dir)
+    discovered = discover_inputs(TRAIN_DIR, TEST_DIR)
 
-    #If explicit files are passed, override discovery
-    train_home_team = args.train_home_team or discovered['train_home_team']
-    train_away_team = args.train_away_team or discovered['train_away_team']
-    train_home_player = args.train_home_player or discovered['train_home_player']
-    train_away_player = args.train_away_player or discovered['train_away_player']
+    # show what was found (helps if something is missing)
+    for k, v in discovered.items():
+        info(f"{k}: {v}")
 
-    test_home_team = args.test_home_team or discovered['test_home_team']
-    test_away_team = args.test_away_team or discovered['test_away_team']
-    test_home_player = args.test_home_player or discovered['test_home_player']
-    test_away_player = args.test_away_player or discovered['test_away_player']
+    # use discovered paths directly (no args.*)
+    train_home_team   = discovered['train_home_team']
+    train_away_team   = discovered['train_away_team']
+    train_home_player = discovered['train_home_player']
+    train_away_player = discovered['train_away_player']
 
-    #Sanity check
+    test_home_team    = discovered['test_home_team']
+    test_away_team    = discovered['test_away_team']
+    test_home_player  = discovered['test_home_player']
+    test_away_player  = discovered['test_away_player']
+
+    # require at least the team files for both splits
     need_train = [train_home_team, train_away_team]
-    need_test = [test_home_team, test_away_team]
+    need_test  = [test_home_team,  test_away_team]
     if any(p is None for p in need_train + need_test):
-        raise SystemExit("Missing required team CSVs. pass --*-team or set --*-dir to a folder with those files.")
+        raise SystemExit("Missing required team CSVs under Data/Train_Data or Data/Test_Data.")
 
+    # --- BUILD TRAIN ---
     info("Building TRAIN split ...")
     train = build_split(
         home_team_path=train_home_team,
-        away_team_path=train_away_team, 
+        away_team_path=train_away_team,
         home_player_path=train_home_player,
-        away_player_path= train_away_player,
-        lenient=args.lenient,
+        away_player_path=train_away_player,
+        lenient=False,
     )
 
-    # Targets
-    y = load_y_train(args.y_train)
-    if y is not None:
-        train_ids = train[['ID']].sort_values('ID').reset_index(drop=True)
-        y_aligned = train_ids.merge(y, on='ID', how='left')
-
-        n_missing = int(y_aligned[['HOME_WINS','DRAW','AWAY_WINS']].isna().any(axis=1).sum())
-        info(f"Targets aligned to train IDs. Missing labels: {n_missing}")
-
-        out_dir = args.out_dir if args.out_dir else Path('data/processed')
-        out_dir.mkdir(parents=True, exist_ok=True)
-        y_aligned.to_csv(out_dir / 'y_train_aligned.csv', index=False)
-        ok("Saved y_train_aligned.csv (kept separate to avoid leakage)")
-
+    # --- BUILD TEST ---
     info("Building TEST split …")
     test = build_split(
         home_team_path=test_home_team,
         away_team_path=test_away_team,
         home_player_path=test_home_player,
         away_player_path=test_away_player,
-        lenient=args.lenient,
+        lenient=False,
     )
 
-    save_artifacts(train, test, args.out_dir)
+    # write early (because files are not created otherwise so test this way)
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    train.to_csv(OUT_DIR / 'train_merged.csv', index=False)
+    ok("Wrote train_merged.csv (early)")
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    test.to_csv(OUT_DIR / 'test_merged.csv', index=False)
+    ok("Wrote test_merged.csv (early)")
+
+    # --- TARGETS at fixed locations (optional) ---
+    if Y_TRAIN_PATH.exists():
+        y = load_y_train(Y_TRAIN_PATH)
+        if y is not None:
+            train_ids = train[['ID']].sort_values('ID').reset_index(drop=True)
+            y_aligned = train_ids.merge(y, on='ID', how='left')
+            n_missing = int(y_aligned[['HOME_WINS','DRAW','AWAY_WINS']].isna().any(axis=1).sum())
+            info(f"Targets aligned to train IDs. Missing labels: {n_missing}")
+            y_aligned.to_csv(OUT_DIR / 'y_train_aligned.csv', index=False)
+            ok("Saved y_train_aligned.csv")
+
+    if Y_SUPP_PATH.exists():
+        y_supp = load_y_train_supp(Y_SUPP_PATH)
+        if y_supp is not None:
+            train_ids = train[['ID']].sort_values('ID').reset_index(drop=True)
+            y_supp_aligned = train_ids.merge(y_supp, on='ID', how='left')
+            n_missing_supp = int(y_supp_aligned[['GOAL_DIFF_HOME_AWAY']].isna().any(axis=1).sum())
+            info(f"Y_train_supp aligned to train IDs. Missing labels: {n_missing_supp}")
+            y_supp_aligned.to_csv(OUT_DIR / 'y_train_supp_aligned.csv', index=False)
+            ok("Saved y_train_supp_aligned.csv")
+
+    # --- BUILD TEST ---
+    info("Building TEST split …")
+    test = build_split(
+        home_team_path=test_home_team,
+        away_team_path=test_away_team,
+        home_player_path=test_home_player,
+        away_player_path=test_away_player,
+        lenient=False,
+    )
+
+    # final artifacts (X train/test + schema)
+    save_artifacts(train, test, OUT_DIR)
     ok("Tout est parfaittttttt")
 
 

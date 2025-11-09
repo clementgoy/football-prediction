@@ -1,4 +1,3 @@
-
 PY=.venv/bin/python
 PIP=.venv/bin/pip
 TRAIN_DIR ?= data/Train_Data
