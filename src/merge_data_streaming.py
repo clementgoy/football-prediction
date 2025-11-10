@@ -356,15 +356,12 @@ def save_artifacts(train_df: pd.DataFrame, test_df: pd.DataFrame, out_dir: Path)
 
 #Entry point: parse args → build train/test → optional targets → save.
 def main() -> None:
-    # --- fixed-root discovery (no CLI) ---
     info("Discovery inputs ...")
     discovered = discover_inputs(TRAIN_DIR, TEST_DIR)
 
-    # show what was found (helps if something is missing)
     for k, v in discovered.items():
         info(f"{k}: {v}")
 
-    # use discovered paths directly (no args.*)
     train_home_team   = discovered['train_home_team']
     train_away_team   = discovered['train_away_team']
     train_home_player = discovered['train_home_player']
