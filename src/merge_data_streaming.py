@@ -12,7 +12,7 @@ DATA_ROOT = Path("data")
 TRAIN_DIR = DATA_ROOT / "Train_Data"
 TEST_DIR  = DATA_ROOT / "Test_Data"
 
-Y_TRAIN_PATH = DATA_ROOT / "y_train_1rknArQ.csv"         
+Y_TRAIN_PATH = DATA_ROOT / "Y_train_1rknArQ.csv"         
 Y_SUPP_PATH  = DATA_ROOT / "benchmark_and_extras" / "Y_train_supp.csv"
 
 OUT_DIR = DATA_ROOT / "processed"
@@ -26,13 +26,12 @@ def ok(msg: str) -> None:
 
 #Return the first CSV file in *directory* whose filename contains a token. 
 #Used for lightweight auto-discovery when users pass only a folder.
-#Recursive so it goes even in the folders contains in the data folder (we want to keep the architercture of the challenge )
+#Recursive so it goes even in the folders contains in the data folder (we want to keep the architercture of the challenge)
 def discover_file(directory: Path, contains: str) -> Optional[Path]:
     candidates = sorted(p for p in directory.rglob('*.csv') if contains in p.name)
     return candidates[0] if candidates else None
 
 #Add a prefix to all columns except those in *exclude*.
-#This avoids name collisions after merges (e.g. shots_on_target exists in both home and away tables).
 def enforce_prefix(df: pd.DataFrame, prefix: str, exclude: Tuple[str, ...] = ("ID",)) -> pd.DataFrame:
     rename = {c: f"{prefix}{c}" for c in df.columns if c not in exclude}
     return df.rename(columns=rename)
@@ -52,7 +51,7 @@ def aggregate_players_from_csv(path: Path, side_prefix: str, chunksize: int = 10
     """
     info(f"Streaming aggregate of {path.name} ...")
 
-    # 0) Petit échantillon pour détecter les colonnes numériques
+    # etit échantillon pour détecter les colonnes numériques
     sample = pd.read_csv(path, nrows=2000, low_memory=False)
     if 'ID' not in sample.columns:
         raise ValueError(f"{path.name} must contain an 'ID' column")
@@ -65,27 +64,25 @@ def aggregate_players_from_csv(path: Path, side_prefix: str, chunksize: int = 10
     sumsq_acc = None   # idem, pour variance
     count_acc = None   # Series index=ID
 
-    # 1) Lecture par morceaux
+    # Lecture par morceaux
     for chunk in pd.read_csv(path, low_memory=False, usecols=usecols, chunksize=chunksize):
-        # Sommes par ID
+    
         sums = chunk.groupby('ID')[numeric_cols].sum()
 
-        # Sommes des carrés par ID (pour variance/écart-type)
         sumsq = (chunk[numeric_cols] ** 2).groupby(chunk['ID']).sum()
 
-        # Compte de lignes par ID
         counts = chunk.groupby('ID').size()
 
         sum_acc   = sums   if sum_acc   is None else sum_acc.add(sums,   fill_value=0)
         sumsq_acc = sumsq  if sumsq_acc is None else sumsq_acc.add(sumsq, fill_value=0)
         count_acc = counts if count_acc is None else count_acc.add(counts, fill_value=0)
 
-    # 2) Finalisation: mean, std
+    # Finalisation: mean, std
     mean = sum_acc.div(count_acc, axis=0)
     var  = sumsq_acc.div(count_acc, axis=0) - (mean ** 2)
     std  = var.clip(lower=0).pow(0.5)
 
-    # 3) Construction du DataFrame final
+    # Construction du DataFrame final
     out = pd.DataFrame(index=sum_acc.index)
     for col in numeric_cols:
         out[f"{side_prefix}{col}_sum"]  = sum_acc[col]
@@ -104,30 +101,30 @@ Also adds ``{side_prefix}player_count`` as the number of player rows per match.
 def aggregate_players(df: pd.DataFrame, side_prefix: str) -> pd.DataFrame:
     assert 'ID' in df.columns, "Player table must contain ID"
 
-    # 1) Ne garder que les colonnes numériques + ID pour grouper
+    # Ne garder que les colonnes numériques + ID pour grouper
     numeric = df.select_dtypes(include=['number']).copy()
     numeric['ID'] = df['ID']
 
-    # 2) Colonnes à agréger (toutes sauf ID)
+    # Colonnes à agréger (toutes sauf ID)
     cols = [c for c in numeric.columns if c != 'ID']
 
-    # 3) Agrégations multi-fonctions → MultiIndex sur les colonnes
+    # Agrégations
     out = numeric.groupby('ID')[cols].agg(['sum', 'mean', 'std'])
 
-    # 4) Aplatir le MultiIndex proprement
+    # Aplatir MultiIndex
     #    to_flat_index() renvoie des tuples (col, agg)
     out.columns = [f"{side_prefix}{col}_{agg}" for col, agg in out.columns.to_flat_index()]
 
-    # 5) Ajouter le nombre de lignes joueur par match
+    # Ajouter le nombre de lignes joueur par match
     counts = df.groupby('ID').size().rename(f"{side_prefix}player_count")
     out = out.join(counts)
 
-    # 6) Reset index + petit log
+    # Reset index
     out = out.reset_index()
     ok(f"Aggregated players → {out.shape[0]} rows × {out.shape[1]} cols")
     return out
 
-#Merge two tables on ``ID`` with a short size log.
+#Merge two tables on ``ID``
 def safe_merge(left: pd.DataFrame, right: pd.DataFrame, how: str = 'inner') -> pd.DataFrame:
     before = left.shape
     merged = left.merge(right, on='ID', how=how)
@@ -156,21 +153,21 @@ def clean_unique_by_id(df: pd.DataFrame, id_col: str = 'ID') -> pd.DataFrame:
     """
     assert id_col in df.columns, f"Missing id column: {id_col}"
 
-    # 1) Drop exact duplicate rows
+    # Drop exact duplicate rows
     n_before = len(df)
     dup_all = int(df.duplicated(keep='first').sum())
     if dup_all:
         info(f"Found {dup_all} exact duplicate rows → dropping…")
         df = df.drop_duplicates(keep='first')
 
-    # 2) Drop duplicate IDs
+    # Drop duplicate IDs
     dups_mask = df.duplicated(subset=[id_col], keep='first')
     n_dup_ids = int(dups_mask.sum())
     if n_dup_ids:
         info(f"Found {n_dup_ids} duplicate {id_col}s → keeping first, dropping others…")
         df = df[~dups_mask].copy()
 
-    # 3) Sort and reset index
+    # Sort and reset index
     if id_col in df.columns:
         df = df.sort_values(id_col).reset_index(drop=True)
 
@@ -196,7 +193,7 @@ def build_split(*,
     away_player_path: Optional[Path],
     lenient: bool = False,
 ) -> pd.DataFrame:
-    # 1) Teams 
+    #Teams 
     home_team = read_csv(home_team_path)
     away_team = read_csv(away_team_path)
 
@@ -204,26 +201,26 @@ def build_split(*,
     home_team = enforce_prefix(home_team, 'home_team')
     away_team = enforce_prefix(away_team, 'away_team')
 
-    # 2) Merge team tables on ID
+    #Merge team tables on ID
     how = 'left' if lenient else 'inner'
     teams = safe_merge(home_team, away_team, how=how)
 
-    # 3) Players 
+    #Players 
     if home_player_path and home_player_path.exists():
-        # Version streaming (évite OOM)
+        # Version streaming
         home_player = aggregate_players_from_csv(home_player_path, 'home_player_')
         teams = safe_merge(teams, home_player, how=how)
     else: 
         info("no home player file provided, skipping.")
     
     if away_player_path and away_player_path.exists():
-        # Version streaming (évite OOM)
+        # Version streaming 
         away_player = aggregate_players_from_csv(away_player_path, 'away_player_')
         teams = safe_merge(teams, away_player, how=how)
     else: 
         info("no away player file provided, skipping.")
 
-    #4) Final tidy ups 
+    #Final tidy ups 
     #Reorder: ID first
     cols = ['ID'] + [c for c in teams.columns if c != 'ID']
     teams = teams[cols]
@@ -239,11 +236,10 @@ def build_split(*,
 
 # Partie CLI pour lancer le script avec des arguments différents 
 
-#function which define all the params
+#fct that define all the params
 def parse_args() -> argparse.Namespace: 
     p = argparse.ArgumentParser(description="Merge raw football CSVs into modeling table")
 
-    #Discovery roots
     p.add_argument('--train-home-team', type=Path, default=None)
     p.add_argument('--train-away-team', type=Path, default=None)
     p.add_argument('--train-home-player', type=Path, default=None)
@@ -354,7 +350,7 @@ def save_artifacts(train_df: pd.DataFrame, test_df: pd.DataFrame, out_dir: Path)
         json.dump(schema, f, indent=2)
     ok("Saved schema.json")
 
-#Entry point: parse args → build train/test → optional targets → save.
+
 def main() -> None:
     info("Discovery inputs ...")
     discovered = discover_inputs(TRAIN_DIR, TEST_DIR)
@@ -378,7 +374,7 @@ def main() -> None:
     if any(p is None for p in need_train + need_test):
         raise SystemExit("Missing required team CSVs under Data/Train_Data or Data/Test_Data.")
 
-    # --- BUILD TRAIN ---
+
     info("Building TRAIN split ...")
     train = build_split(
         home_team_path=train_home_team,
@@ -393,7 +389,7 @@ def main() -> None:
     train.to_csv(OUT_DIR / 'train_merged.csv', index=False)
     ok("Wrote train_merged.csv (early)")
 
-    # --- TARGETS at fixed locations (optional) ---
+
     if Y_TRAIN_PATH.exists():
         y = load_y_train(Y_TRAIN_PATH)
         if y is not None:
@@ -414,7 +410,7 @@ def main() -> None:
             y_supp_aligned.to_csv(OUT_DIR / 'y_train_supp_aligned.csv', index=False)
             ok("Saved y_train_supp_aligned.csv")
 
-    # --- BUILD TEST ---
+
     info("Building TEST split …")
     test = build_split(
         home_team_path=test_home_team,
@@ -424,12 +420,10 @@ def main() -> None:
         lenient=False,
     )
 
-    # écrire aussi tôt le test merge
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     test.to_csv(OUT_DIR / 'test_merged.csv', index=False)
     ok("Wrote test_merged.csv (early)")
 
-    # final artifacts (X train/test + schema)
     save_artifacts(train, test, OUT_DIR)
     ok("Tout est parfaittttttt")
 
