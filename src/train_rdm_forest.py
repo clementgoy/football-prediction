@@ -14,9 +14,7 @@ from sklearn.model_selection import train_test_split, GridSearchCV
 import joblib
 
 
-# =============================
-# Chemins fixes
-# =============================
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 PROC = BASE_DIR / "data" / "processed"
 MODELS_DIR = BASE_DIR / "models"
@@ -27,16 +25,13 @@ Y_ALIGNED_PATH = PROC / "y_train_aligned.csv"
 Y_SUPP_PATH    = PROC / "y_train_supp_aligned.csv"
 
 
-# =============================
-# Config lisible
-# =============================
 @dataclass
 class TrainConfig:
     test_size: float = 0.2
     random_state: int = 42
-    max_cardinality: int = 50  # one-hot des catégorielles (au-delà -> drop)
+    max_cardinality: int = 50  
 
-    # petite grille (reste rapide et simple)
+    # grille
     param_grid: dict = None
 
     def __post_init__(self):
@@ -50,9 +45,6 @@ class TrainConfig:
             }
 
 
-# =============================
-# Logs
-# =============================
 def info(msg: str) -> None:
     print(f"\n[info] {msg}")
 
@@ -60,9 +52,8 @@ def ok(msg: str) -> None:
     print(f"[ok] {msg}")
 
 
-# =============================
+
 # Data loaders
-# =============================
 def load_X() -> pd.DataFrame:
     if not TRAIN_X_PATH.exists():
         raise FileNotFoundError(f"Fichier X introuvable: {TRAIN_X_PATH}")
@@ -85,9 +76,8 @@ def load_y_and_supp() -> Tuple[pd.DataFrame, Optional[pd.DataFrame]]:
     return y, y_s
 
 
-# =============================
+
 # Helpers: cible + encodage
-# =============================
 def one_hot_to_class(y_df: pd.DataFrame) -> np.ndarray:
     need = ["HOME_WINS","DRAW","AWAY_WINS"]
     if not set(need).issubset(y_df.columns):
@@ -137,9 +127,8 @@ def build_Xy_for_training(X: pd.DataFrame, y_like: pd.DataFrame, max_cardinality
     return X_feat, y_class, feature_names
 
 
-# =============================
-# Poids: 3 scénarios
-# =============================
+
+# Poids: 3 scénarios (sans poids, lineaires, exp)
 def compute_win_margin(y_df: pd.DataFrame, y_supp_df: Optional[pd.DataFrame]) -> np.ndarray:
     if y_supp_df is None:
         return np.zeros(len(y_df), dtype=float)
@@ -175,8 +164,7 @@ def weights_from_margin(margin: np.ndarray, scheme: str, beta: float = 0.25,
     elif scheme == "linear":
         w = base + beta * margin
     elif scheme == "exp":
-        w = base + (np.expm1(alpha * margin)) * 1.0  # croissance douce
-        # si tu veux encore calmer -> multiplie par un facteur <1; ici on laisse 1.0
+        w = base + (np.expm1(alpha * margin)) * 1.0 
     else:
         raise ValueError("scheme must be in {'none','linear','exp'}")
     if cap is not None:
@@ -184,9 +172,7 @@ def weights_from_margin(margin: np.ndarray, scheme: str, beta: float = 0.25,
     return w.astype(float)
 
 
-# =============================
 # Entraînement (une stratégie)
-# =============================
 def train_one_scenario(X_feat: np.ndarray, y_cls: np.ndarray, feature_names: List[str],
                        weights: np.ndarray, cfg: TrainConfig, run_name: str) -> Dict:
     info(f"Split train/val ({run_name}) …")
@@ -229,7 +215,6 @@ def train_one_scenario(X_feat: np.ndarray, y_cls: np.ndarray, feature_names: Lis
     )
     cm = confusion_matrix(y_val, y_pred).tolist()
 
-    # Importances complètes (pour prédiction alignée)
     importances = getattr(model, "feature_importances_", None)
     imp_path = MODELS_DIR / f"rf_feature_importances_{run_name}.csv"
     top_feats = None
@@ -269,9 +254,7 @@ def train_one_scenario(X_feat: np.ndarray, y_cls: np.ndarray, feature_names: Lis
     }
 
 
-# =============================
 # Main: lance les 3 scénarios
-# =============================
 def main(cfg: TrainConfig = TrainConfig()):
     info("Chargement des données …")
     X = load_X()
@@ -288,7 +271,7 @@ def main(cfg: TrainConfig = TrainConfig()):
         {"run_name": "no_weight", "scheme": "none",   "beta": 0.0,  "alpha": 0.0, "cap": None},
         # 2) linéaire léger
         {"run_name": "linear_small", "scheme": "linear","beta": 0.25, "alpha": 0.0, "cap": None},
-        # 3) exponentiel doux (capé)
+        # 3) exponentiel doux 
         {"run_name": "exp_soft", "scheme": "exp",    "beta": 1.0,  "alpha": 0.2, "cap": 5.0},
     ]
 
@@ -303,13 +286,13 @@ def main(cfg: TrainConfig = TrainConfig()):
             base=1.0,
             cap=sc["cap"]
         )
-        # petites stats de poids
+        # stats de poids
         print(f"[ok] {sc['run_name']} weights → min={w.min():.3f} | median={np.median(w):.3f} | max={w.max():.3f}")
 
         res = train_one_scenario(X_feat, y_cls, feature_names, w, cfg, run_name=sc["run_name"])
         results.append(res)
 
-    # Tableau comparatif
+    # comparatif
     comp = pd.DataFrame(results).sort_values("val_accuracy", ascending=False)
     comp.to_csv(MODELS_DIR / "weighting_compare.csv", index=False)
     print("\n=== Résumé des scénarios ===")

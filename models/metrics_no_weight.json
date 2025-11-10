@@ -1,0 +1,152 @@
+{
+  "run_name": "no_weight",
+  "val_accuracy": 0.4953271028037383,
+  "best_params": {
+    "max_depth": 20,
+    "max_features": "sqrt",
+    "min_samples_leaf": 3,
+    "min_samples_split": 2,
+    "n_estimators": 400
+  },
+  "confusion_matrix": [
+    [
+      906,
+      7,
+      159
+    ],
+    [
+      448,
+      6,
+      183
+    ],
+    [
+      439,
+      6,
+      307
+    ]
+  ],
+  "class_report": "              precision    recall  f1-score   support\n\n   HOME_WINS     0.5053    0.8451    0.6325      1072\n        DRAW     0.3158    0.0094    0.0183       637\n   AWAY_WINS     0.4730    0.4082    0.4383       752\n\n    accuracy                         0.4953      2461\n   macro avg     0.4314    0.4209    0.3630      2461\nweighted avg     0.4464    0.4953    0.4141      2461\n",
+  "n_features": 2118,
+  "top_features": [
+    {
+      "feature": "home_player_PLAYER_GOALS_season_sum_sum",
+      "importance": 0.001828189407951922
+    },
+    {
+      "feature": "away_player_PLAYER_GOALS_CONCEDED_season_sum_mean",
+      "importance": 0.0017160976872443343
+    },
+    {
+      "feature": "home_teamTEAM_GAME_WON_season_sum",
+      "importance": 0.001581673240730099
+    },
+    {
+      "feature": "home_teamTEAM_GAME_WON_season_average",
+      "importance": 0.0015467494147566113
+    },
+    {
+      "feature": "home_teamTEAM_SHOTS_TOTAL_season_average",
+      "importance": 0.0015366773290387645
+    },
+    {
+      "feature": "home_teamTEAM_SHOTS_ON_TARGET_season_average",
+      "importance": 0.001451924971506758
+    },
+    {
+      "feature": "home_player_PLAYER_GOALS_season_sum_mean",
+      "importance": 0.001423189229528227
+    },
+    {
+      "feature": "home_player_PLAYER_ASSISTS_season_sum_sum",
+      "importance": 0.0013626176373484728
+    },
+    {
+      "feature": "away_player_PLAYER_GOALS_CONCEDED_season_sum_std",
+      "importance": 0.0013512332994104613
+    },
+    {
+      "feature": "home_teamTEAM_DANGEROUS_ATTACKS_season_sum",
+      "importance": 0.0013467896860256093
+    },
+    {
+      "feature": "home_teamTEAM_BALL_POSSESSION_season_average",
+      "importance": 0.0013361755674167256
+    },
+    {
+      "feature": "away_teamTEAM_SHOTS_ON_TARGET_season_average",
+      "importance": 0.0012944831694471986
+    },
+    {
+      "feature": "home_teamTEAM_GAME_LOST_season_average",
+      "importance": 0.0012829230914219553
+    },
+    {
+      "feature": "away_player_PLAYER_GOALS_CONCEDED_season_sum_sum",
+      "importance": 0.0012802880445744358
+    },
+    {
+      "feature": "away_player_PLAYER_ACCURATE_PASSES_season_average_std",
+      "importance": 0.001261310665686527
+    },
+    {
+      "feature": "home_player_PLAYER_GOALS_CONCEDED_season_average_mean",
+      "importance": 0.001259850392168227
+    },
+    {
+      "feature": "home_player_PLAYER_ASSISTS_season_sum_mean",
+      "importance": 0.0012488989839221985
+    },
+    {
+      "feature": "home_player_PLAYER_GOALS_CONCEDED_5_last_match_sum_mean",
+      "importance": 0.0012470465561897938
+    },
+    {
+      "feature": "away_player_PLAYER_GOALS_CONCEDED_season_average_mean",
+      "importance": 0.0012338834491719668
+    },
+    {
+      "feature": "home_player_PLAYER_GOALS_CONCEDED_5_last_match_average_std",
+      "importance": 0.001226433944962361
+    },
+    {
+      "feature": "home_player_PLAYER_GOALS_CONCEDED_season_sum_mean",
+      "importance": 0.0012251544448644417
+    },
+    {
+      "feature": "home_player_PLAYER_GOALS_CONCEDED_season_sum_std",
+      "importance": 0.0012237890499781124
+    },
+    {
+      "feature": "away_teamTEAM_SHOTS_ON_TARGET_season_sum",
+      "importance": 0.0012095497582096184
+    },
+    {
+      "feature": "home_player_PLAYER_GOALS_CONCEDED_5_last_match_average_mean",
+      "importance": 0.0012060141052227147
+    },
+    {
+      "feature": "home_player_PLAYER_GOALS_CONCEDED_5_last_match_sum_sum",
+      "importance": 0.0012041787375281535
+    },
+    {
+      "feature": "away_player_PLAYER_ACCURATE_PASSES_season_average_sum",
+      "importance": 0.0012002645476321362
+    },
+    {
+      "feature": "away_player_PLAYER_GOALS_CONCEDED_season_std_mean",
+      "importance": 0.0011982014858370295
+    },
+    {
+      "feature": "home_teamTEAM_GOALS_season_sum",
+      "importance": 0.0011970448377793558
+    },
+    {
+      "feature": "home_player_PLAYER_GOALS_season_sum_std",
+      "importance": 0.001194644437611725
+    },
+    {
+      "feature": "away_player_PLAYER_PASSES_season_average_sum",
+      "importance": 0.0011900577835283227
+    }
+  ]
+}

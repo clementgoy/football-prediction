@@ -12,7 +12,7 @@ DATA_ROOT = Path("data")
 TRAIN_DIR = DATA_ROOT / "Train_Data"
 TEST_DIR  = DATA_ROOT / "Test_Data"
 
-Y_TRAIN_PATH = DATA_ROOT / "y_train_1rknArQ.csv" 
+Y_TRAIN_PATH = DATA_ROOT / "Y_train_1rknArQ.csv" 
 Y_SUPP_PATH  = DATA_ROOT / "benchmark_and_extras" / "Y_train_supp.csv"
 
 OUT_DIR = DATA_ROOT / "processed"
