@@ -7,8 +7,8 @@ from typing import Dict, Optional, Tuple
 
 import pandas as pd
 
-# === FIXED PATHS (no CLI args) ===
-DATA_ROOT = Path("Data")
+# ATTENTION : sur UBUNTU mettre "DATA_ROOT = Path("data")" et sur windows : "DATA_ROOT = Path("../data")"
+DATA_ROOT = Path("data")
 TRAIN_DIR = DATA_ROOT / "Train_Data"
 TEST_DIR  = DATA_ROOT / "Test_Data"
 
