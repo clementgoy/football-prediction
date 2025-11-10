@@ -7,12 +7,12 @@ from typing import Dict, Optional, Tuple
 
 import pandas as pd
 
-# === FIXED PATHS (no CLI args) ===
-DATA_ROOT = Path("Data")
+# ATTENTION : sur UBUNTU mettre "DATA_ROOT = Path("data")" et sur windows : "DATA_ROOT = Path("../data")"
+DATA_ROOT = Path("data")
 TRAIN_DIR = DATA_ROOT / "Train_Data"
 TEST_DIR  = DATA_ROOT / "Test_Data"
 
-Y_TRAIN_PATH = DATA_ROOT / "y_train_1rknArQ.csv"          # one-hot targets
+Y_TRAIN_PATH = DATA_ROOT / "y_train_1rknArQ.csv"         
 Y_SUPP_PATH  = DATA_ROOT / "benchmark_and_extras" / "Y_train_supp.csv"
 
 OUT_DIR = DATA_ROOT / "processed"
@@ -265,7 +265,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument('--lenient', action='store_true', help='Use LEFT joins instead of INNER (keep more rows)')
 
     #ouput
-    p.add_argument('--out-dir', type=Path, default=Path('data/processed'))
+    p.add_argument('--out-dir', type=Path, default=Path('../data/processed'))
 
     return p.parse_args()
 
