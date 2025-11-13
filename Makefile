@@ -66,7 +66,7 @@ predict-goal-diff-lgbm:
 	$(PY) -m src.predict_goal_diff_lgbm \
 		--test-csv data/processed/test_merged.csv \
 		--model models/lgbm_goal_diff.pkl \
-		--out-csv submission_lgbm_goal_diff.csv
+		--out-csv models/submission_lgbm_goal_diff.csv
 
 submit:
 	@ls -1 outputs/submissions/*.csv | tail -n1

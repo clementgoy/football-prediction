@@ -60,9 +60,9 @@ def main():
     if args.id_col in X_test.columns:
         X_test = X_test.drop(columns=[args.id_col])
 
-    X = X.select_dtypes(include=["number"]).copy()
-    print(f"[debug] Features numériques après filtrage: {X.shape}")
-    
+    X_test = X_test.select_dtypes(include=["number"]).copy()
+    print(f"[debug] Features numériques après filtrage: {X_test.shape}")
+
     # Chargement du modèle
     reg = joblib.load(args.model)
 
