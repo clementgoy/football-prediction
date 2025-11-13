@@ -5,7 +5,7 @@ TEST_DIR  ?= data/Test_Data
 Y_TRAIN   ?= data/Y_train_1rknArQ.csv
 OUT_DIR   ?= data/processed
 
-.PHONY: setup mlflow-ui train predict submit clean
+.PHONY: setup mlflow-ui merge train-hgbc train-lgbm predict-hgbc predict-lgbm submit clean
 
 setup:
 	python -m venv .venv
@@ -15,7 +15,6 @@ setup:
 mlflow-ui:
 	$(PY) -m mlflow ui --backend-store-uri ./mlruns --host 127.0.0.1 --port 5000
 
-.PHONY: merge
 merge:
 	@echo "Merging raw CSVs into modelling tables"
 	$(PY) -m src.merge_data \
@@ -27,7 +26,7 @@ merge:
 
 train-hgbc:
 	@echo "[make] TRAIN"
-	@mkdir -p outputs/models outputs/logs outputs/submissions
+	@mkdir -p models
 	$(PY) -m src.train_hgbc --config configs/base.yaml
 
 train-lgbm:
@@ -35,7 +34,14 @@ train-lgbm:
 	$(PY) -m src.train_lgbm \
 		--train-csv data/processed/train_merged.csv \
 		--y-csv    data/processed/y_train_aligned.csv \
-		--model-out outputs/models/lgbm.pkl
+		--model-out models/lgbm.pkl
+
+train-goal-diff-lgbm:
+	@echo "[make] TRAIN"
+	$(PY) -m src.train_goal_diff_lgbm \
+	--train-csv data/processed/train_merged.csv \
+	--y-supp-csv data/processed/y_train_supp_aligned.csv \
+	--model-out models/lgbm_goal_diff.pkl
 
 predict-hgbc:
 	@echo "[make] PREDICT"
@@ -55,9 +61,16 @@ predict-lgbm:
 		--alpha-draw 1.0 \
 		--submit-onehot
 
+predict-goal-diff-lgbm:
+	@echo "[make] PREDICT"
+	$(PY) -m src.predict_goal_diff_lgbm \
+		--test-csv data/processed/test_merged.csv \
+		--model models/lgbm_goal_diff.pkl \
+		--out-csv submission_lgbm_goal_diff.csv
+
 submit:
 	@ls -1 outputs/submissions/*.csv | tail -n1
 
 clean:
 	@echo "[make] CLEAN"
-	rm -rf outputs/models outputs/logs outputs/submissions
+	rm -rf models/*
