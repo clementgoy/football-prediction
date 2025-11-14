@@ -55,7 +55,7 @@ train-lgbm-multi:
 	$(PY) -m src.train_lgbm_multiclass_diff \
 		--train-csv data/processed/train_merged.csv \
 		--y-csv    data/processed/y_train_aligned.csv \
-		--model-out outputs/models/lgbm_multiclass_diff.pkl
+		--model-out models/lgbm_multiclass_diff.pkl
 
 predict-hgbc:
 	@echo "[make] PREDICT"
@@ -81,6 +81,15 @@ predict-goal-diff-lgbm-regressor:
 		--test-csv data/processed/test_merged.csv \
 		--model models/lgbm_goal_diff.pkl \
 		--out-csv models/submission_lgbm_goal_diff.csv
+
+predict-lgbm-multi:
+	$(PY) -m src.predict_lgbm_multiclass_diff \
+		--test-csv data/processed/test_merged.csv \
+		--model    models/lgbm_multiclass_diff.pkl \
+		--out-csv  models/submission_lgbm_multiclass.csv \
+		--id-col ID \
+		--submit-onehot \
+		--alpha-draw 1.0
 
 submit:
 	@ls -1 outputs/submissions/*.csv | tail -n1
