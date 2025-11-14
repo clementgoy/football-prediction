@@ -43,6 +43,13 @@ train-goal-diff-lgbm:
 	--y-supp-csv data/processed/y_train_supp_aligned.csv \
 	--model-out models/lgbm_goal_diff.pkl
 
+train-goal-diff-lgbm-draw-focus:
+	@echo "[make] TRAIN"
+	$(PY) -m src.train_goal_diff_lgbm_draw_focus \
+		--train-csv data/processed/train_merged.csv \
+		--y-supp-csv data/processed/Y_train_supp_aligned.csv \
+		--model-out models/lgbm_goal_diff_draw_focus.pkl
+
 predict-hgbc:
 	@echo "[make] PREDICT"
 	$(PY) -m src.predict \
