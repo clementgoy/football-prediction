@@ -38,3 +38,48 @@ def build_features_with_diff(df: pd.DataFrame, drop_id_cols: bool = True) -> pd.
         X[diff_name] = X[c] - X[away_col]
 
     return X
+
+def add_interaction_features(X: pd.DataFrame) -> pd.DataFrame:
+    """
+    Ajoute quelques features d'interaction simples, interprétables.
+    """
+    X = X.copy()
+
+    # Exemples: différences déjà présentes (diff_team...) → ratios / densités
+    def safe_div(a, b, eps=1e-3):
+        return a / (b.abs() + eps)
+
+    # Ratio tirs cadrés / buts (diff)
+    if {"diff_teamTEAM_SHOTS_ON_TARGET_season_sum",
+        "diff_teamTEAM_GOALS_season_sum"}.issubset(X.columns):
+        X["int_diff_shots_on_target_per_goal"] = safe_div(
+            X["diff_teamTEAM_SHOTS_ON_TARGET_season_sum"],
+            X["diff_teamTEAM_GOALS_season_sum"],
+        )
+
+    # Possession * tirs totaux (mesure de domination)
+    if {"diff_teamTEAM_BALL_POSSESSION_season_average",
+        "diff_teamTEAM_SHOTS_TOTAL_season_sum"}.issubset(X.columns):
+        X["int_diff_possession_x_shots_total"] = (
+            X["diff_teamTEAM_BALL_POSSESSION_season_average"]
+            * X["diff_teamTEAM_SHOTS_TOTAL_season_sum"]
+        )
+
+    # Cartons / fautes (discipline)
+    if {"diff_teamTEAM_YELLOWCARDS_season_sum",
+        "diff_teamTEAM_FOULS_season_sum"}.issubset(X.columns):
+        X["int_diff_cards_per_foul"] = safe_div(
+            X["diff_teamTEAM_YELLOWCARDS_season_sum"],
+            X["diff_teamTEAM_FOULS_season_sum"],
+        )
+
+    # Tirs dans la surface / tirs totaux (qualité des occasions)
+    if {"diff_teamTEAM_SHOTS_INSIDEBOX_season_sum",
+        "diff_teamTEAM_SHOTS_TOTAL_season_sum"}.issubset(X.columns):
+        X["int_diff_shots_insidebox_ratio"] = safe_div(
+            X["diff_teamTEAM_SHOTS_INSIDEBOX_season_sum"],
+            X["diff_teamTEAM_SHOTS_TOTAL_season_sum"],
+        )
+
+    print(f"[debug] Features après interactions: {X.shape}")
+    return X

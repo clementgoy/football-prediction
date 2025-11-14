@@ -36,19 +36,26 @@ train-lgbm:
 		--y-csv    data/processed/y_train_aligned.csv \
 		--model-out models/lgbm.pkl
 
-train-goal-diff-lgbm:
+train-goal-diff-lgbm-regressor:
 	@echo "[make] TRAIN"
-	$(PY) -m src.train_goal_diff_lgbm \
+	$(PY) -m src.train_goal_diff_lgbm_regressor \
 	--train-csv data/processed/train_merged.csv \
 	--y-supp-csv data/processed/y_train_supp_aligned.csv \
 	--model-out models/lgbm_goal_diff.pkl
 
-train-goal-diff-lgbm-draw-focus:
+train-goal-diff-lgbm-draw-focus-regressor:
 	@echo "[make] TRAIN"
-	$(PY) -m src.train_goal_diff_lgbm_draw_focus \
+	$(PY) -m src.train_goal_diff_lgbm_draw_focus_regressor \
 		--train-csv data/processed/train_merged.csv \
 		--y-supp-csv data/processed/Y_train_supp_aligned.csv \
 		--model-out models/lgbm_goal_diff_draw_focus.pkl
+
+train-lgbm-multi:
+	@echo "[make] TRAIN"
+	$(PY) -m src.train_lgbm_multiclass_diff \
+		--train-csv data/processed/train_merged.csv \
+		--y-csv    data/processed/y_train_aligned.csv \
+		--model-out outputs/models/lgbm_multiclass_diff.pkl
 
 predict-hgbc:
 	@echo "[make] PREDICT"
@@ -68,9 +75,9 @@ predict-lgbm:
 		--alpha-draw 1.0 \
 		--submit-onehot
 
-predict-goal-diff-lgbm:
+predict-goal-diff-lgbm-regressor:
 	@echo "[make] PREDICT"
-	$(PY) -m src.predict_goal_diff_lgbm \
+	$(PY) -m src.predict_goal_diff_lgbm_regressor \
 		--test-csv data/processed/test_merged.csv \
 		--model models/lgbm_goal_diff.pkl \
 		--out-csv models/submission_lgbm_goal_diff.csv
