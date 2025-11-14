@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 import argparse
 from pathlib import Path
 
@@ -12,6 +9,7 @@ from sklearn.metrics import (
     accuracy_score,
     confusion_matrix,
     classification_report,
+    f1_score,
 )
 from lightgbm import LGBMRegressor
 import lightgbm as lgb
@@ -95,9 +93,9 @@ def goal_diff_to_class_with_band(diff: np.ndarray, band: float = 0.5) -> np.ndar
 
 
 # -------------------------------------------------------------------
-#  Entraînement + évaluation
+#  Entraînement + évaluation (focus sur les nuls)
 # -------------------------------------------------------------------
-def train_lgbm_goal_diff(
+def train_lgbm_goal_diff_draw_focus(
     train_csv: str,
     y_supp_csv: str,
     model_out: str,
@@ -116,7 +114,6 @@ def train_lgbm_goal_diff(
     # 2) Split train / valid / holdout
     print("[info] Split train / valid / holdout ...")
 
-    # On sépare d'abord un hold-out
     X_train_valid, X_hold, y_train_valid_diff, y_hold_diff, y_train_valid_cls, y_hold_cls = train_test_split(
         X,
         y_diff,
@@ -126,7 +123,6 @@ def train_lgbm_goal_diff(
         stratify=y_cls,
     )
 
-    # Puis train / valid à l'intérieur du bloc train_valid
     valid_ratio_within_train_valid = valid_size / (1.0 - holdout_size)
 
     X_tr, X_va, y_tr_diff, y_va_diff, y_tr_cls, y_va_cls = train_test_split(
@@ -149,7 +145,7 @@ def train_lgbm_goal_diff(
         objective="regression",
         n_estimators=2000,
         learning_rate=0.05,
-        num_leaves=31,          # plus petit
+        num_leaves=31,
         subsample=0.8,
         colsample_bytree=0.8,
         random_state=random_state,
@@ -167,16 +163,14 @@ def train_lgbm_goal_diff(
         ],
     )
 
-    # puis utiliser reg.best_iteration_ pour prédire :
-    y_tr_pred_diff = reg.predict(X_tr, num_iteration=reg.best_iteration_)
-
-
-    reg.fit(X_tr, y_tr_diff)
+    best_it = reg.best_iteration_
+    if best_it is None:
+        best_it = reg.n_estimators
 
     # 4) Prédiction & RMSE goal diff
-    y_tr_pred_diff = reg.predict(X_tr)
-    y_va_pred_diff = reg.predict(X_va)
-    y_hold_pred_diff = reg.predict(X_hold)
+    y_tr_pred_diff = reg.predict(X_tr, num_iteration=best_it)
+    y_va_pred_diff = reg.predict(X_va, num_iteration=best_it)
+    y_hold_pred_diff = reg.predict(X_hold, num_iteration=best_it)
 
     rmse_tr = np.sqrt(mean_squared_error(y_tr_diff, y_tr_pred_diff))
     rmse_va = np.sqrt(mean_squared_error(y_va_diff, y_va_pred_diff))
@@ -186,22 +180,27 @@ def train_lgbm_goal_diff(
         f"[RMSE] train={rmse_tr:.4f} | valid={rmse_va:.4f} | holdout={rmse_hold:.4f}"
     )
 
-    # 5) Tuning automatique du band pour les matchs nuls, sur la validation
-    print("[info] Tuning du seuil pour les matchs nuls (band) ...")
+    # 5) Tuning du band pour MAXIMISER le F1 de la classe "Draw" (1)
+    print("[info] Tuning du seuil pour les matchs nuls (band) en max F1(classe 1) ...")
     candidate_bands = np.linspace(0.1, 2.5, 25)
     best_band = None
-    best_acc = -1.0
+    best_score = -1.0
 
     for b in candidate_bands:
         y_va_pred_cls_tmp = goal_diff_to_class_with_band(y_va_pred_diff, band=b)
-        acc_tmp = accuracy_score(y_va_cls, y_va_pred_cls_tmp)
-        if acc_tmp > best_acc:
-            best_acc = acc_tmp
+
+        # F1 pour la classe 1 (match nul) vs le reste
+        y_true_bin = (y_va_cls == 1).astype(int)
+        y_pred_bin = (y_va_pred_cls_tmp == 1).astype(int)
+        f1_draw = f1_score(y_true_bin, y_pred_bin)
+
+        if f1_draw > best_score:
+            best_score = f1_draw
             best_band = b
 
-    print(f"[tuning] Meilleur band (validation) = {best_band:.3f} | acc = {best_acc:.4f}")
+    print(f"[tuning] Meilleur band = {best_band:.3f} | F1 Draw (val) = {best_score:.4f}")
 
-    # 6) Applique ce band sur les 3 splits et calcule les accuracies
+    # 6) Applique ce band sur les 3 splits et calcule les accuracies globales
     y_tr_pred_cls = goal_diff_to_class_with_band(y_tr_pred_diff, band=best_band)
     y_va_pred_cls = goal_diff_to_class_with_band(y_va_pred_diff, band=best_band)
     y_hold_pred_cls = goal_diff_to_class_with_band(y_hold_pred_diff, band=best_band)
@@ -210,19 +209,22 @@ def train_lgbm_goal_diff(
     acc_va = accuracy_score(y_va_cls, y_va_pred_cls)
     acc_hold = accuracy_score(y_hold_cls, y_hold_pred_cls)
 
-    # Matrice de confusion & rapport sur le hold-out (jeu le plus honnête)
+    # 7) Matrice de confusion & rapport sur le hold-out (jeu le plus honnête)
     cm = confusion_matrix(y_hold_cls, y_hold_pred_cls)
     clf_report = classification_report(
-        y_hold_cls, y_hold_pred_cls, digits=3
+        y_hold_cls,
+        y_hold_pred_cls,
+        digits=3,
+        target_names=["Home (0)", "Draw (1)", "Away (2)"],
     )
 
-    # 7) Top features les plus importantes
+    # 8) Top features les plus importantes
     importances = reg.feature_importances_
     feature_names = np.array(X.columns)
     order = np.argsort(importances)[::-1]
     top_features = feature_names[order[:20]].tolist()
 
-    # 8) Impression du rapport via result_report
+    # 9) Impression du rapport via print_report (même format que ton script actuel)
     print_report(
         train_acc=acc_tr,
         val_acc=acc_va,
@@ -236,7 +238,7 @@ def train_lgbm_goal_diff(
         X_ho_sel=X_hold,
     )
 
-    # 9) Sauvegarde du modèle + band
+    # 10) Sauvegarde du modèle + band
     out_path = Path(model_out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(
@@ -247,7 +249,7 @@ def train_lgbm_goal_diff(
         },
         out_path,
     )
-    print(f"\n[ok] Modèle LightGBM goal_diff + band sauvegardé dans {out_path.resolve()}")
+    print(f"\n[ok] Modèle LightGBM goal_diff + band (focus draws) sauvegardé dans {out_path.resolve()}")
 
 
 # -------------------------------------------------------------------
@@ -256,9 +258,9 @@ def train_lgbm_goal_diff(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Entraîne un LightGBM Regressor sur l'écart de buts (GOAL_DIFF_HOME_AWAY) "
-            "avec features de différence home/away, puis convertit en classes "
-            "(Home/Draw/Away) via un band optimisé."
+            "Entraîne un LightGBM Regressor sur GOAL_DIFF_HOME_AWAY, "
+            "puis convertit en classes (Home/Draw/Away) via un band optimisé "
+            "pour le F1 de la classe 'Draw' (1)."
         )
     )
 
@@ -304,7 +306,7 @@ def parse_args() -> argparse.Namespace:
 
 def main():
     args = parse_args()
-    train_lgbm_goal_diff(
+    train_lgbm_goal_diff_draw_focus(
         train_csv=args.train_csv,
         y_supp_csv=args.y_supp_csv,
         model_out=args.model_out,
