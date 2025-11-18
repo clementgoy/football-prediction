@@ -14,14 +14,11 @@ import pandas as pd
 BASE_DIR = Path(__file__).resolve().parent.parent
 PROC = BASE_DIR / "data" / "processed"
 MODELS_DIR = BASE_DIR / "models"
-SUBM_DIR = BASE_DIR / "outputs" / "submissions"
-
-SUBM_DIR.mkdir(parents=True, exist_ok=True)
 
 TEST_X_PATH = PROC / "test_merged.csv"
 MODEL_PATH = MODELS_DIR / "random_forest.pkl"
 FEATS_PATH = MODELS_DIR / "rf_feature_importances.csv"
-SUBMISSION_PATH = SUBM_DIR / "submission_rf_optimized.csv"
+SUBMISSION_PATH = MODELS_DIR / "submission_rf_optimized.csv"
 
 
 # -------------------------------------------------------------------
@@ -89,20 +86,21 @@ def main() -> None:
 
     # 4) Prédiction des probabilités
     info("Prédiction des probabilités...")
-    proba = model.predict_proba(X_test)  # shape: (n_samples, 3)
+    proba = model.predict_proba(X_test)  # (n_samples, 3)
 
-    if proba.shape[1] != 3:
-        raise ValueError(
-            f"Le modèle ne renvoie pas 3 classes, mais {proba.shape[1]}."
-        )
+    # 5) Conversion en prédiction one-hot (0/1) comme dans l'exemple du challenge
+    classes = np.argmax(proba, axis=1)  # 0 = home, 1 = draw, 2 = away
 
-    # 5) Construction du fichier de soumission
+    y_onehot = np.zeros_like(proba, dtype=int)
+    y_onehot[np.arange(len(classes)), classes] = 1
+
+    # 6) Construction du fichier de soumission au format attendu (0/1)
     sub = pd.DataFrame(
         {
             "ID": ids,
-            "HOME_WINS": proba[:, 0],
-            "DRAW": proba[:, 1],
-            "AWAY_WINS": proba[:, 2],
+            "HOME_WINS": y_onehot[:, 0],
+            "DRAW": y_onehot[:, 1],
+            "AWAY_WINS": y_onehot[:, 2],
         }
     )
 
