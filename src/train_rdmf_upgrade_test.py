@@ -11,7 +11,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier, HistGradientBoostingClassifier
 import joblib
 
-from src.print_result import print_report
+from print_result import print_report
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -21,8 +21,8 @@ MODELS = ROOT / "models"
 MODELS.mkdir(parents=True, exist_ok=True)
 
 X_PATH = PROCESSED / "train_merged.csv"
-Y_ONEHOT_PATH = PROCESSED / "y_train_aligned.csv"          # colonnes: ID, HOME_WINS, DRAW, AWAY_WINS
-Y_SUPP_PATH   = PROCESSED / "y_train_supp_aligned.csv"     # colonnes: ID, GOAL_DIFF_HOME_AWAY (optionnel)
+Y_ONEHOT_PATH = PROCESSED / "y_train_aligned.csv"  
+Y_SUPP_PATH   = PROCESSED / "y_train_supp_aligned.csv"  
 
 def info(msg: str) -> None:
     print(f"\n[info] {msg}")
@@ -85,12 +85,10 @@ def build_sample_weights(
     y_supp: Optional[pd.DataFrame],
     scheme: str = "linear025"
 ) -> np.ndarray:
-    """
-    schémas:
-      - 'none'       : poids = 1
-      - 'linear025'  : 1 + 0.25 * |écart|
-      - 'exp015'     : exp(0.15 * |écart|), plafonné
-    """
+    
+    # linear025 = 1 + 0.25 * |écart|
+    # exp015 = exp(0.15 * |écart|), plafonné
+
     w = np.ones(len(ids), dtype=np.float32)
     if y_supp is None or scheme == "none":
         return w
@@ -113,12 +111,11 @@ def build_sample_weights(
     return w
 
 def make_candidates(random_state: int = 42) -> Dict[str, Any]:
-    """
-    Trois candidats simples, mais efficaces sur tabulaire:
-      - rf  : RandomForest (réglages robustes)
-      - et  : ExtraTrees (plus de randomisation, souvent très bon)
-      - hgb : HistGradientBoosting (boosting d’arbres, early stopping)
-    """
+    # On compare trois modèles :
+    # rf = RandomForest 
+    # et = ExtraTrees qui est plus randomisé et sensé mieux généraliser
+    # hgb = HistGradientBoosting (scikit-learn) avec stoppage pour limiter le overfitting 
+
     rf = RandomForestClassifier(
         n_estimators=700,
         max_depth=None,
@@ -211,7 +208,6 @@ def train_and_select(
         (MODELS / f"{tag}_metrics.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
         (MODELS / f"{tag}_features.json").write_text(json.dumps({"feature_names": list(X.columns)}, indent=2), encoding="utf-8")
 
-        # On garde aussi l'objet clf en mémoire pour pouvoir afficher les perfs du meilleur modele
         results.append({
             "key": key,
             "acc": acc,
@@ -248,10 +244,10 @@ def train_and_select(
         order = np.argsort(importances)[::-1]
         top_features = feature_names[order].tolist()
     else:
-        # On renvoie la liste des features
+        # renvoie la liste des features
         top_features = list(X.columns)
 
-    # Appel à la fonction quia ffiche les perfs
+    # Appel à la fonction qui affiche les perfs
     print_report(
         train_acc=train_acc,
         val_acc=val_acc,
@@ -265,8 +261,14 @@ def train_and_select(
         X_ho_sel=X_va, 
     )
 
-    # Pointeur vers le meilleur modele
-    (MODELS / "best.json").write_text(json.dumps(best, indent=2), encoding="utf-8")
+    # On selectionne le meilleur modèle
+    best_for_json = dict(best)        
+    best_for_json.pop("clf", None)    
+    (MODELS / "best.json").write_text(
+        json.dumps(best_for_json, indent=2),
+        encoding="utf-8"
+    )
+
     return best
 
 def main() -> None:
