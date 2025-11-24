@@ -6,7 +6,6 @@ import numpy as np
 import pandas as pd
 import joblib
 
-# ---------- chemins (depuis src/) ----------
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 PROC = ROOT / "data" / "processed"
@@ -25,7 +24,6 @@ def info(msg: str) -> None:
 def ok(msg: str) -> None:
     print(f"[ok] {msg}")
 
-# ---------- utils ----------
 def _encode_categoricals(df: pd.DataFrame, max_cardinality: int = 50) -> pd.DataFrame:
     """One-hot des colonnes catégorielles de faible cardinalité ; drop le reste."""
     cat_cols = df.select_dtypes(include=["object", "category", "bool"]).columns.tolist()
@@ -58,7 +56,6 @@ def find_model_tags() -> List[str]:
     tags = []
     for p in sorted(MODELS.glob("*_features.json")):
         tag = p.name.replace("_features.json", "")
-        # on ne garde que ceux qui ont aussi le .joblib correspondant
         if (MODELS / f"{tag}.joblib").exists():
             tags.append(tag)
     if not tags:
@@ -80,7 +77,6 @@ def load_expected_features(tag: str) -> List[str]:
 def build_X_for_model(test_df: pd.DataFrame, expected_features: List[str]) -> np.ndarray:
     feats = test_df.drop(columns=["ID"], errors="ignore")
 
-    # Sépare numérique / non-numérique
     num = feats.select_dtypes(include=[np.number])
     non_num = feats.drop(columns=num.columns, errors="ignore")
 
@@ -90,24 +86,22 @@ def build_X_for_model(test_df: pd.DataFrame, expected_features: List[str]) -> np
     else:
         feats_final = num
 
-    # réalignement exact:
     X_aligned = feats_final.reindex(columns=expected_features, fill_value=0.0)
     X_np = X_aligned.fillna(0.0).to_numpy(dtype=np.float32)
     return X_np
 
 def predict_one_model(tag: str, test_df: pd.DataFrame) -> pd.DataFrame:
-    # 1) features attendues
+    # features attendues
     expected = load_expected_features(tag)
     X_test = build_X_for_model(test_df, expected)
     ok(f"[{tag}] X_test shape: {X_test.shape}")
 
-    # 2) modèle
+    # modèle
     model_path = MODELS / f"{tag}.joblib"
     clf = joblib.load(model_path)
     if not hasattr(clf, "predict_proba"):
         raise ValueError(f"{tag} ne supporte pas predict_proba().")
 
-    # 3) proba -> 1/0
     proba = clf.predict_proba(X_test)
     if proba.shape[1] != 3:
         raise ValueError(f"{tag}: le modèle ne renvoie pas 3 classes (shape={proba.shape}).")
