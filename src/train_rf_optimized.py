@@ -12,16 +12,12 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from sklearn.model_selection import train_test_split
 
-# Import robuste de ta fonction de print
 try:
     from .print_result import print_report
-except ImportError:  # si tu exécutes depuis src/ directement
+except ImportError:  
     from print_result import print_report
 
 
-# -------------------------------------------------------------------
-# Chemins
-# -------------------------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent
 PROC = BASE_DIR / "data" / "processed"
 MODELS_DIR = BASE_DIR / "models"
@@ -34,17 +30,12 @@ MODEL_OUT_PATH = MODELS_DIR / "random_forest.pkl"
 FEATS_PATH = MODELS_DIR / "rf_feature_importances.csv"
 METRICS_PATH = MODELS_DIR / "rf_metrics.json"
 
-
-# -------------------------------------------------------------------
-# Config
-# -------------------------------------------------------------------
 @dataclass
 class TrainConfig:
-    holdout_fraction: float = 0.2     # portion pour le hold-out
-    val_fraction: float = 0.2         # portion pour la validation (sur le reste)
+    holdout_fraction: float = 0.2     
+    val_fraction: float = 0.2        
     random_state: int = 42
 
-    # RF de sélection de features
     fs_n_estimators: int = 400
     fs_max_depth: int = 18
     fs_max_features: float = 0.6
