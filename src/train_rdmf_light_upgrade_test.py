@@ -95,7 +95,6 @@ def load_data() -> Tuple[pd.DataFrame, pd.DataFrame, Optional[pd.DataFrame]]:
 
     return X, y1, y_supp
 
-# --------------- préparation ----------------
 def prepare_features_labels(
     X: pd.DataFrame,
     y_onehot: pd.DataFrame,
@@ -108,7 +107,6 @@ def prepare_features_labels(
     merged = X.merge(y_onehot[need], on="ID", how="inner")
     ok(f"Alignement X↔y: {merged.shape[0]} lignes")
 
-    # y classes (0,1,2)
     y_cls = merged[["HOME_WINS", "DRAW", "AWAY_WINS"]].values.argmax(axis=1)
 
     # features numériques uniquement
@@ -132,7 +130,7 @@ def prepare_features_labels(
     X_imp = pd.DataFrame(imputer.fit_transform(X_num), columns=num_cols, index=X_num.index)
     X_imp = X_imp.astype(np.float32)  
 
-    # --- sélection top-k par variance  ---
+    # sélection top-k par variance
     if n_features_max is not None and X_imp.shape[1] > n_features_max:
         info(f"Sélection simple par variance → top {n_features_max}/{X_imp.shape[1]}")
         # on calcule la variance colonne par colonne
@@ -151,12 +149,10 @@ def build_sample_weights(
     y_supp: Optional[pd.DataFrame],
     scheme: str = "linear025"
 ) -> np.ndarray:
-    """
-    schémas:
-      - 'none'       : poids = 1
-      - 'linear025'  : 1 + 0.25 * |écart|
-      - 'exp015'     : exp(0.15 * |écart|), plafonné
-    """
+    
+   # linear025 = 1 + 0.25 * |écart|
+    # exp015 = exp(0.15 * |écart|), plafonné
+
     w = np.ones(len(ids), dtype=np.float32)
     if y_supp is None or scheme == "none":
         return w
@@ -178,7 +174,6 @@ def build_sample_weights(
     w = np.clip(w, 0.5, 20.0).astype(np.float32)
     return w
 
-# --------------- modèles légers à entrainer (pour mon ordi) ---------------
 def make_candidates(random_state: int = RANDOM_STATE) -> Dict[str, Any]:
     rf = RandomForestClassifier(
         n_estimators=RF_TREES,
@@ -221,7 +216,7 @@ def make_candidates(random_state: int = RANDOM_STATE) -> Dict[str, Any]:
 
     return models
 
-# ----------- entraînement & sélection -----------
+# entrainement et selection
 def train_and_select(
     X: pd.DataFrame,
     y: np.ndarray,
@@ -232,7 +227,7 @@ def train_and_select(
     feature_names: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
 
-    # split simple (pas de K-fold)
+    # split simple
     sss = StratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=random_state)
     (tr_idx, va_idx), = sss.split(X, y)
 

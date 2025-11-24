@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 import joblib
 
-# ----------------- chemins depuis src/ -----------------
 BASE_DIR = Path(__file__).resolve().parent.parent
 PROC = BASE_DIR / "data" / "processed"
 MODELS_DIR = BASE_DIR / "models"
@@ -17,12 +16,11 @@ FEATS_PATH  = MODELS_DIR / "rf_feature_importances.csv"
 # sortie
 OUT_PATH = PROC / "submission.csv"
 
-# -> IMPORTANT: one-hot (1/0) au lieu de probabilités
+# one-hot
 HARD_LABELS = True
 
-# (optionnel) CSV modèle pour imposer l'ordre de colonnes
+# CSV modèle
 TEMPLATE_PATH: Optional[Path] = None
-# TEMPLATE_PATH = BASE_DIR / "Data" / "Y_test_random_sEE2QeA.csv"
 
 def info(msg: str) -> None:
     print(f"[info] {msg}")
@@ -83,32 +81,32 @@ def load_template_header(template_path: Path) -> Optional[List[str]]:
         return None
 
 def main() -> None:
-    # 1) charger test
+    # charger test
     if not TEST_X_PATH.exists():
         raise FileNotFoundError(f"Fichier test introuvable: {TEST_X_PATH}")
     test = pd.read_csv(TEST_X_PATH, low_memory=False)
     ok(f"test_merged.csv: {test.shape}")
 
-    # 2) charger modèle
+    # charger modèle
     if not MODEL_PATH.exists():
         raise FileNotFoundError(f"Modèle introuvable: {MODEL_PATH}")
     model = joblib.load(MODEL_PATH)
     ok(f"Modèle chargé: {MODEL_PATH.name}")
 
-    # 3) features attendues
+    # features attendues
     expected_features = load_expected_feature_list()
 
-    # 4) construire X_test
+    # construire X_test
     X_test = build_X_test(test, expected_features, max_cardinality=50)
 
-    # 5) prédire
+    # prédire
     if not hasattr(model, "predict_proba"):
         raise ValueError("Le modèle ne supporte pas predict_proba().")
     proba = model.predict_proba(X_test)  # (n, 3)
     if proba.shape[1] != 3:
         raise ValueError(f"Le modèle ne renvoie pas 3 classes (shape={proba.shape}).")
 
-    # 6) construire DataFrame de sortie
+    # construire DataFrame de sortie
     if HARD_LABELS:
         # argmax -> one-hot
         idx = proba.argmax(axis=1)
@@ -121,7 +119,7 @@ def main() -> None:
             "AWAY_WINS": onehot[:, 2],
         })
     else:
-        # (fallback) probabilités
+        # probabilités
         sub = pd.DataFrame({
             "ID": test["ID"].values,
             "HOME_WINS": proba[:, 0],
@@ -129,7 +127,7 @@ def main() -> None:
             "AWAY_WINS": proba[:, 2],
         })
 
-    # 7) option: imposer l'ordre du template
+    # imposer l'ordre du template
     if TEMPLATE_PATH is not None and TEMPLATE_PATH.exists():
         cols = load_template_header(TEMPLATE_PATH)
         needed = ["ID","HOME_WINS","DRAW","AWAY_WINS"]
@@ -137,7 +135,7 @@ def main() -> None:
             keep = [c for c in cols if c in sub.columns]
             sub = sub.reindex(columns=keep)
 
-    # 8) écrire CSV (valeurs int 0/1)
+    # écrire CSV
     sub = sub.astype({"HOME_WINS": "int8", "DRAW": "int8", "AWAY_WINS": "int8"})
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     sub.to_csv(OUT_PATH, index=False)

@@ -76,8 +76,6 @@ def load_y_and_supp() -> Tuple[pd.DataFrame, Optional[pd.DataFrame]]:
     return y, y_s
 
 
-
-# Helpers: cible + encodage
 def one_hot_to_class(y_df: pd.DataFrame) -> np.ndarray:
     need = ["HOME_WINS","DRAW","AWAY_WINS"]
     if not set(need).issubset(y_df.columns):
@@ -128,7 +126,7 @@ def build_Xy_for_training(X: pd.DataFrame, y_like: pd.DataFrame, max_cardinality
 
 
 
-# Poids: 3 scénarios (sans poids, lineaires, exp)
+# sans poids, lineaires et exp
 def compute_win_margin(y_df: pd.DataFrame, y_supp_df: Optional[pd.DataFrame]) -> np.ndarray:
     if y_supp_df is None:
         return np.zeros(len(y_df), dtype=float)
@@ -154,11 +152,10 @@ def compute_win_margin(y_df: pd.DataFrame, y_supp_df: Optional[pd.DataFrame]) ->
 def weights_from_margin(margin: np.ndarray, scheme: str, beta: float = 0.25,
                         alpha: float = 0.2, base: float = 1.0,
                         cap: Optional[float] = None) -> np.ndarray:
-    """
-    - scheme="none" : poids = 1
-    - scheme="linear" : base + beta * margin
-    - scheme="exp"   : base + (exp(alpha*margin)-1) * beta_exp (ici on réutilise beta comme facteur d'échelle)
-    """
+   
+    # linear = base + beta * margin
+    # exp = base + (exp(alpha*margin)-1) * beta_exp 
+    
     if scheme == "none":
         w = np.ones_like(margin, dtype=float)
     elif scheme == "linear":
@@ -254,7 +251,6 @@ def train_one_scenario(X_feat: np.ndarray, y_cls: np.ndarray, feature_names: Lis
     }
 
 
-# Main: lance les 3 scénarios
 def main(cfg: TrainConfig = TrainConfig()):
     info("Chargement des données …")
     X = load_X()
@@ -267,11 +263,11 @@ def main(cfg: TrainConfig = TrainConfig()):
     margin = compute_win_margin(y_all, y_supp)
 
     scenarios = [
-        # 1) pas de poids
+        # pas de poids
         {"run_name": "no_weight", "scheme": "none",   "beta": 0.0,  "alpha": 0.0, "cap": None},
-        # 2) linéaire léger
+        # linéaire atténué
         {"run_name": "linear_small", "scheme": "linear","beta": 0.25, "alpha": 0.0, "cap": None},
-        # 3) exponentiel doux 
+        # exponentiel atténué 
         {"run_name": "exp_soft", "scheme": "exp",    "beta": 1.0,  "alpha": 0.2, "cap": 5.0},
     ]
 

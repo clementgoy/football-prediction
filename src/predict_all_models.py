@@ -124,7 +124,7 @@ def predict_one_model(tag: str, test_df: pd.DataFrame) -> pd.DataFrame:
             "AWAY_WINS": proba[:, 2],
         })
 
-    # types propres pour Challenge Data
+    # types propres pour que la soumission soit accepté par Challenge Data
     sub = sub.astype({"HOME_WINS": "int8", "DRAW": "int8", "AWAY_WINS": "int8"})
     return sub
 
