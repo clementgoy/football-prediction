@@ -1,18 +1,9 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 import pandas as pd
 from .features import build_features
 
 
 def build_features_with_diff(df: pd.DataFrame, drop_id_cols: bool = True) -> pd.DataFrame:
-    """
-    Construit les features de base (via src.features.build_features)
-    puis ajoute des features de type "home - away" pour chaque paire.
 
-    On ne calcule les différences QUE pour les colonnes numériques afin
-    d'éviter les erreurs du type 'str' - 'str'.
-    """
     X = build_features(df, drop_id_cols=drop_id_cols).copy()
 
     numeric_cols = set(X.select_dtypes(include="number").columns)
@@ -37,9 +28,7 @@ def build_features_with_diff(df: pd.DataFrame, drop_id_cols: bool = True) -> pd.
     return X
 
 def add_interaction_features(X: pd.DataFrame) -> pd.DataFrame:
-    """
-    Ajoute quelques features d'interaction simples, interprétables.
-    """
+
     X = X.copy()
 
     def safe_div(a, b, eps=1e-3):

@@ -58,7 +58,6 @@ def aggregate_players(df: pd.DataFrame, side_prefix: str) -> pd.DataFrame:
     return out
 
 
-#Merge two tables on ``ID`` with a short size log.
 def safe_merge(left: pd.DataFrame, right: pd.DataFrame, how: str = 'inner') -> pd.DataFrame:
     before = left.shape
     merged = left.merge(right, on='ID', how=how)
