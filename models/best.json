@@ -1,0 +1,32 @@
+{
+  "key": "rf",
+  "acc": 0.4904510361641609,
+  "model_path": "/media/clemma/806634a0-6af4-4b54-b68e-52e5d1264f4b/qrt-football-challenge/models/rf_exp015.joblib",
+  "meta": {
+    "model": "rf",
+    "weight_scheme": "exp015",
+    "val_accuracy": 0.4904510361641609,
+    "n_train": 9842,
+    "n_val": 2461,
+    "n_features": 2094,
+    "random_state": 42,
+    "confusion_matrix": [
+      [
+        883,
+        6,
+        183
+      ],
+      [
+        439,
+        8,
+        190
+      ],
+      [
+        430,
+        6,
+        316
+      ]
+    ],
+    "classification_report": "              precision    recall  f1-score   support\n\n   HOME_WINS     0.5040    0.8237    0.6254      1072\n        DRAW     0.4000    0.0126    0.0244       637\n   AWAY_WINS     0.4586    0.4202    0.4386       752\n\n    accuracy                         0.4905      2461\n   macro avg     0.4542    0.4188    0.3628      2461\nweighted avg     0.4632    0.4905    0.4127      2461\n"
+  }
+}
