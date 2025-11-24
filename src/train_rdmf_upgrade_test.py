@@ -1,4 +1,3 @@
-# src/train_tabular_baseline.py
 from __future__ import annotations
 from pathlib import Path
 from typing import Dict, Any, Tuple, Optional
@@ -20,8 +19,8 @@ MODELS = ROOT / "models"
 MODELS.mkdir(parents=True, exist_ok=True)
 
 X_PATH = PROCESSED / "train_merged.csv"
-Y_ONEHOT_PATH = PROCESSED / "y_train_aligned.csv"          
-Y_SUPP_PATH   = PROCESSED / "y_train_supp_aligned.csv"     
+Y_ONEHOT_PATH = PROCESSED / "y_train_aligned.csv"          # colonnes: ID, HOME_WINS, DRAW, AWAY_WINS
+Y_SUPP_PATH   = PROCESSED / "y_train_supp_aligned.csv"     # colonnes: ID, GOAL_DIFF_HOME_AWAY (optionnel)
 
 def info(msg: str) -> None:
     print(f"\n[info] {msg}")
@@ -126,7 +125,7 @@ def make_candidates(random_state: int = 42) -> Dict[str, Any]:
         max_features="sqrt",
         n_jobs=-1,
         random_state=random_state,
-        class_weight="balanced_subsample",  # équilibre classes rares (ex: DRAW)
+        class_weight="balanced_subsample",  # équilibre classes pour draw qui est rarement predit si,non
     )
 
     et = ExtraTreesClassifier(
