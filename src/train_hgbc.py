@@ -1,4 +1,3 @@
-# src/train.py (extrait corrigé)
 import os, json, argparse
 from datetime import datetime
 import pandas as pd
@@ -21,7 +20,6 @@ def load_train_processed():
     X_raw = pd.read_csv("data/processed/train_merged.csv")
     y_raw = pd.read_csv("data/processed/y_train_aligned.csv")
 
-    # Anti-fuite
     bad = [c for c in X_raw.columns if c in ("HOME_WINS","DRAW","AWAY_WINS")]
     assert not bad, f"Leakage: {bad} found in X_raw!"
 
@@ -32,7 +30,6 @@ def load_train_processed():
 def main(config_path: str):
     X, y = load_train_processed()
 
-    # 70 / 20 / 10 (train / val / hold-out)
     X_tmp, X_ho, y_tmp, y_ho = train_test_split(X, y, test_size=0.10, random_state=42, stratify=y)
     X_tr,  X_va, y_tr, y_va   = train_test_split(X_tmp, y_tmp, test_size=0.2222, random_state=42, stratify=y_tmp)
 
@@ -41,18 +38,15 @@ def main(config_path: str):
     drop_cols = [c for c in upper.columns if (upper[c] > 0.995).any()]
     X_tr = X_tr.drop(columns=drop_cols); X_va = X_va.drop(columns=drop_cols); X_ho = X_ho.drop(columns=drop_cols)
 
-    # === Sélecteur de features ===
     vt = VarianceThreshold(threshold=1e-4)
     vt.fit(X_tr)
     X_tr_sel = vt.transform(X_tr)
     X_va_sel = vt.transform(X_va)
     X_ho_sel = vt.transform(X_ho)
 
-    # Noms des features conservées (utile pour predict)
     support = vt.get_support()
     selected_features = np.array(X_tr.columns)[support].tolist()
 
-    # === Modèle ===
     hgb_params = dict(
         max_iter=800,
         learning_rate=0.03,
@@ -67,7 +61,6 @@ def main(config_path: str):
     w = compute_sample_weight("balanced", y_tr)
     model.fit(X_tr_sel, y_tr, sample_weight=w)
 
-    # === Scores et diagnostics ===
     train_acc = accuracy_score(y_tr, model.predict(X_tr_sel))
     val_acc   = accuracy_score(y_va, model.predict(X_va_sel))
     hold_pred = model.predict(X_ho_sel)
@@ -82,7 +75,6 @@ def main(config_path: str):
 
     print_report(train_acc, val_acc, hold_acc, cm, clf_report, top_features, X, X_tr_sel, X_va_sel, X_ho_sel)
 
-    # === Sauvegardes ===
     os.makedirs("outputs/models", exist_ok=True)
     os.makedirs("outputs/logs", exist_ok=True)
     artifact = {

@@ -8,9 +8,6 @@ import numpy as np
 import pandas as pd
 
 
-# -------------------------------------------------------------------
-# Chemins
-# -------------------------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent
 PROC = BASE_DIR / "data" / "processed"
 MODELS_DIR = BASE_DIR / "models"
@@ -21,9 +18,6 @@ FEATS_PATH = MODELS_DIR / "rf_feature_importances.csv"
 SUBMISSION_PATH = MODELS_DIR / "submission_rf_optimized.csv"
 
 
-# -------------------------------------------------------------------
-# Helpers
-# -------------------------------------------------------------------
 def info(msg: str) -> None:
     print(f"\n[info] {msg}")
 
@@ -57,7 +51,6 @@ def load_test_data() -> Tuple[np.ndarray, pd.DataFrame]:
 
     ids = df["ID"].values
 
-    # On garde seulement les colonnes numériques, sans ID
     feats = df.drop(columns=["ID"], errors="ignore")
     X_num = feats.select_dtypes(include=[np.number]).copy()
 
@@ -68,33 +61,26 @@ def load_test_data() -> Tuple[np.ndarray, pd.DataFrame]:
 def main() -> None:
     info("Prédiction avec la RandomForest optimisée")
 
-    # 1) Features attendues
     feature_list = load_expected_feature_list()
     info(f"{len(feature_list)} features attendues (sélectionnées à l'entraînement).")
 
-    # 2) Données de test
     ids, X_test_raw = load_test_data()
 
-    # On aligne les colonnes sur la liste de features utilisée à l'entraînement
     X_test = X_test_raw.reindex(columns=feature_list, fill_value=0.0)
 
-    # 3) Chargement du modèle
     if not MODEL_PATH.exists():
         raise FileNotFoundError(f"Modèle introuvable: {MODEL_PATH}")
     info(f"Chargement du modèle depuis {MODEL_PATH}...")
     model = joblib.load(MODEL_PATH)
 
-    # 4) Prédiction des probabilités
     info("Prédiction des probabilités...")
-    proba = model.predict_proba(X_test)  # (n_samples, 3)
+    proba = model.predict_proba(X_test)  
 
-    # 5) Conversion en prédiction one-hot (0/1) comme dans l'exemple du challenge
-    classes = np.argmax(proba, axis=1)  # 0 = home, 1 = draw, 2 = away
+    classes = np.argmax(proba, axis=1)  
 
     y_onehot = np.zeros_like(proba, dtype=int)
     y_onehot[np.arange(len(classes)), classes] = 1
 
-    # 6) Construction du fichier de soumission au format attendu (0/1)
     sub = pd.DataFrame(
         {
             "ID": ids,

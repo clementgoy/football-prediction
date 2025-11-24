@@ -14,7 +14,7 @@ from sklearn.model_selection import train_test_split
 
 try:
     from .print_result import print_report
-except ImportError:  
+except ImportError:
     from print_result import print_report
 
 
@@ -32,16 +32,15 @@ METRICS_PATH = MODELS_DIR / "rf_metrics.json"
 
 @dataclass
 class TrainConfig:
-    holdout_fraction: float = 0.2     
-    val_fraction: float = 0.2        
+    holdout_fraction: float = 0.2
+    val_fraction: float = 0.2
     random_state: int = 42
 
     fs_n_estimators: int = 400
     fs_max_depth: int = 18
     fs_max_features: float = 0.6
-    fs_top_k: int = 800               # nb de features à garder
+    fs_top_k: int = 800              
 
-    # RF finale
     rf_n_estimators: int = 1200
     rf_max_depth: int = 18
     rf_max_features: float = 0.4
@@ -52,10 +51,6 @@ class TrainConfig:
 
 cfg = TrainConfig()
 
-
-# -------------------------------------------------------------------
-# Helpers
-# -------------------------------------------------------------------
 def info(msg: str) -> None:
     print(f"\n[info] {msg}")
 
@@ -75,16 +70,12 @@ def load_data() -> Tuple[pd.DataFrame, np.ndarray]:
     X = pd.read_csv(TRAIN_X_PATH, low_memory=False)
     y_df = pd.read_csv(Y_PATH, low_memory=False)
 
-    # Merge sur ID
     merged = y_df[["ID", "HOME_WINS", "DRAW", "AWAY_WINS"]].merge(X, on="ID", how="left")
 
-    # Cible : argmax sur [HOME_WINS, DRAW, AWAY_WINS] → 0/1/2
     y = merged[["HOME_WINS", "DRAW", "AWAY_WINS"]].values.argmax(axis=1)
 
-    # Features : on enlève ID + cibles
     feats = merged.drop(columns=["HOME_WINS", "DRAW", "AWAY_WINS", "ID"], errors="ignore")
 
-    # On garde uniquement les colonnes numériques (normalement tout est déjà numérisé)
     X_num = feats.select_dtypes(include=[np.number]).copy()
 
     info(f"Échantillons: {len(X_num)}, features numériques: {X_num.shape[1]}")
@@ -92,7 +83,6 @@ def load_data() -> Tuple[pd.DataFrame, np.ndarray]:
 
 
 def select_top_features(X: pd.DataFrame, y: np.ndarray, cfg: TrainConfig) -> List[str]:
-    """Sélectionne les top features via RandomForest et sauvegarde le CSV d'importances."""
     info("Sélection des features les plus importantes (RandomForest)...")
 
     rf_fs = RandomForestClassifier(
@@ -126,7 +116,6 @@ def select_top_features(X: pd.DataFrame, y: np.ndarray, cfg: TrainConfig) -> Lis
 def make_splits(
     X: pd.DataFrame, y: np.ndarray, cfg: TrainConfig
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, np.ndarray, np.ndarray, np.ndarray]:
-    """Split en train / val / hold-out de manière stratifiée."""
     info("Découpage train / validation / hold-out...")
 
     # D'abord on isole le hold-out
@@ -156,7 +145,6 @@ def make_splits(
 
 
 def build_model(cfg: TrainConfig) -> RandomForestClassifier:
-    """Construit une RandomForest avec les hyperparamètres optimisés."""
     rf = RandomForestClassifier(
         n_estimators=cfg.rf_n_estimators,
         max_depth=cfg.rf_max_depth,
@@ -171,28 +159,20 @@ def build_model(cfg: TrainConfig) -> RandomForestClassifier:
     return rf
 
 
-# -------------------------------------------------------------------
-# Main training pipeline
-# -------------------------------------------------------------------
 def main() -> None:
     info("Entraînement RandomForest optimisée ")
 
-    # 1) Chargement des données
     X, y = load_data()
 
-    # 2) Sélection de features via RF
     top_features = select_top_features(X, y, cfg)
     X_sel = X[top_features].copy()
 
-    # 3) Découpage train / val / holdout
     X_tr, X_va, X_ho, y_tr, y_va, y_ho = make_splits(X_sel, y, cfg)
 
-    # 4) Entraînement sur le train uniquement (pour les métriques)
     info("Entraînement du modèle sur le set d'entraînement...")
     rf = build_model(cfg)
     rf.fit(X_tr, y_tr)
 
-    # 5) Évaluation train / val / hold-out
     y_tr_pred = rf.predict(X_tr)
     y_va_pred = rf.predict(X_va)
     y_ho_pred = rf.predict(X_ho)
@@ -204,7 +184,6 @@ def main() -> None:
     cm = confusion_matrix(y_ho, y_ho_pred)
     clf_rep = classification_report(y_ho, y_ho_pred, digits=3)
 
-    # 6) Rapport formaté
     print_report(
         train_acc=train_acc,
         val_acc=val_acc,
@@ -218,7 +197,6 @@ def main() -> None:
         X_ho_sel=X_ho,
     )
 
-    # 7) Réentraînement sur train + val pour le modèle final
     info("Réentraînement sur train + val pour le modèle final...")
     X_final = pd.concat([X_tr, X_va], axis=0)
     y_final = np.concatenate([y_tr, y_va])
@@ -226,11 +204,9 @@ def main() -> None:
     rf_final = build_model(cfg)
     rf_final.fit(X_final, y_final)
 
-    # 8) Sauvegarde du modèle
     joblib.dump(rf_final, MODEL_OUT_PATH)
     ok(f"Modèle final sauvegardé dans {MODEL_OUT_PATH}")
 
-    # 9) Sauvegarde des métriques
     metrics = {
         "train_accuracy": float(train_acc),
         "val_accuracy": float(val_acc),

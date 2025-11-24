@@ -3,6 +3,7 @@
 
 import argparse
 from pathlib import Path
+import joblib
 
 import numpy as np
 import pandas as pd
@@ -19,30 +20,20 @@ from src.features_diff import add_interaction_features, build_features_with_diff
 
 
 def build_Xy_multiclass_with_diff(train_csv: str, y_csv: str):
-    """
-    Construit:
-      - X : features numériques + colonnes diff (home-away)
-      - y : classes 0=Home, 1=Draw, 2=Away
-    """
-    # 1) Chargement X brut
     X_raw = pd.read_csv(train_csv)
     if "ID" not in X_raw.columns:
         raise ValueError("Le fichier train_csv doit contenir une colonne 'ID'.")
 
     ids = X_raw["ID"].values
 
-    # 2) Ajout des features diff (home/away + diff_*)
     X = build_features_with_diff(X_raw, drop_id_cols=True)
 
-    # Sécurité si jamais "ID" traîne encore
     if "ID" in X.columns:
         X = X.drop(columns=["ID"])
 
-    # On garde uniquement les colonnes numériques (LightGBM + stable)
     X = X.select_dtypes(include=["number"]).copy()
     print(f"[debug] Features numériques après filtrage: {X.shape}")
 
-    # 3) Chargement du y (HOME_WINS, DRAW, AWAY_WINS)
     y_raw = pd.read_csv(y_csv)
     expected_cols = {"ID", "HOME_WINS", "DRAW", "AWAY_WINS"}
     if not expected_cols.issubset(y_raw.columns):
@@ -50,10 +41,8 @@ def build_Xy_multiclass_with_diff(train_csv: str, y_csv: str):
             f"y_csv doit contenir les colonnes {expected_cols}, trouvé {y_raw.columns}"
         )
 
-    # Alignement sur les IDs de X
     y_raw = y_raw.set_index("ID").loc[ids]
 
-    # Passer du one-hot [HOME_WINS, DRAW, AWAY_WINS] -> classe 0/1/2
     y_onehot = y_raw[["HOME_WINS", "DRAW", "AWAY_WINS"]].values
     y = y_onehot.argmax(axis=1)  # 0=Home, 1=Draw, 2=Away
 
@@ -61,7 +50,6 @@ def build_Xy_multiclass_with_diff(train_csv: str, y_csv: str):
 
 
 def split_train_valid_holdout(X, y, valid_size=0.1667, holdout_size=0.1667, random_state=42):
-    # 1) Séparer un holdout final
     X_train_valid, X_hold, y_train_valid, y_hold = train_test_split(
         X,
         y,
@@ -70,7 +58,6 @@ def split_train_valid_holdout(X, y, valid_size=0.1667, holdout_size=0.1667, rand
         stratify=y,
     )
 
-    # 2) Séparer train / valid à l'intérieur
     valid_ratio_within_train_valid = valid_size / (1.0 - holdout_size)
 
     X_tr, X_va, y_tr, y_va = train_test_split(
@@ -106,16 +93,7 @@ def make_lgbm_multiclass(random_state=42):
     )
     return clf
 
-# -------------------------------------------------------------------
-#  Conversion goal diff -> classes
-# -------------------------------------------------------------------
 def goal_diff_to_class(diff: np.ndarray) -> np.ndarray:
-    """
-    Convertit un goal diff en classe:
-        > 0 → 0 (HOME_WINS)
-        = 0 → 1 (DRAW)
-        < 0 → 2 (AWAY_WINS)
-    """
     diff = np.asarray(diff)
     cls = np.zeros_like(diff, dtype=int)
     cls[diff < 0] = 2
@@ -124,13 +102,6 @@ def goal_diff_to_class(diff: np.ndarray) -> np.ndarray:
 
 
 def goal_diff_to_class_with_band(diff: np.ndarray, band: float = 0.5) -> np.ndarray:
-    """
-    Version avec bande autour de 0 pour mieux capter les matchs nuls.
-
-      - if diff >  band  → 0 (HOME)
-      - if |diff| <= band → 1 (DRAW)
-      - if diff < -band  → 2 (AWAY)
-    """
     diff = np.asarray(diff)
     cls = np.zeros_like(diff, dtype=int)
     cls[diff < -band] = 2          # AWAY
@@ -146,19 +117,15 @@ def train_lgbm_multiclass_diff(
     holdout_size: float = 0.1667,
     random_state: int = 42,
 ):
-    # 1) Build X, y
     X, y, ids = build_Xy_multiclass_with_diff(train_csv, y_csv)
     X = add_interaction_features(X)
 
-    # 2) Split
     X_tr, X_va, X_hold, y_tr, y_va, y_hold = split_train_valid_holdout(
         X, y, valid_size=valid_size, holdout_size=holdout_size, random_state=random_state
     )
 
-    # 3) Modèle LGBM
     clf = make_lgbm_multiclass(random_state=random_state)
 
-    # 4) Fit avec early stopping
     clf.fit(
         X_tr,
         y_tr,
@@ -174,31 +141,24 @@ def train_lgbm_multiclass_diff(
     if best_it is None:
         best_it = clf.n_estimators
 
-    # 5) Prédiction
     y_tr_pred = clf.predict(X_tr, num_iteration=best_it)
     y_va_pred = clf.predict(X_va, num_iteration=best_it)
     y_hold_pred = clf.predict(X_hold, num_iteration=best_it)
 
-    # 6) Scores
     acc_tr = accuracy_score(y_tr, y_tr_pred)
     acc_va = accuracy_score(y_va, y_va_pred)
     acc_hold = accuracy_score(y_hold, y_hold_pred)
 
-    # Matrice de confusion sur holdout
     cm = confusion_matrix(y_hold, y_hold_pred)
 
     target_names = ["Home (0)", "Draw (1)", "Away (2)"]
     clf_report = classification_report(y_hold, y_hold_pred, target_names=target_names)
-
-
     
-    # 7) Top features
     importances = clf.feature_importances_
     feature_names = np.array(X.columns)
     order = np.argsort(importances)[::-1]
     top_features = feature_names[order[:20]].tolist()
 
-    # 8) Impression via print_report (comme ton script actuel)
     print_report(
         train_acc=acc_tr,
         val_acc=acc_va,
@@ -211,10 +171,6 @@ def train_lgbm_multiclass_diff(
         X_va_sel=X_va,
         X_ho_sel=X_hold,
     )
-
-    # 9) Sauvegarde du modèle
-    from pathlib import Path
-    import joblib
 
     out_path = Path(model_out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -229,9 +185,6 @@ def train_lgbm_multiclass_diff(
     )
     print(f"\n[ok] Modèle LightGBM multiclass + diff sauvegardé dans {out_path.resolve()}")
 
-# -------------------------------------------------------------------
-#  CLI
-# -------------------------------------------------------------------
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(

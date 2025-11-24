@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 import argparse
 from pathlib import Path
 
@@ -14,14 +11,6 @@ SUBMIT_COLS = ["HOME_WINS", "DRAW", "AWAY_WINS"]
 
 
 def goal_diff_to_onehot(diff: np.ndarray) -> np.ndarray:
-    """
-    Transforme un goal diff en one-hot [HOME,DRAW,AWAY].
-
-    On utilise juste le signe :
-        > 0 -> [1,0,0]
-        = 0 -> [0,1,0]
-        < 0 -> [0,0,1]
-    """
     diff = np.asarray(diff)
     n = diff.shape[0]
     proba = np.zeros((n, 3), dtype=float)
@@ -55,7 +44,6 @@ def main():
 
     ids = test_df[args.id_col].copy()
 
-    # Même pipeline de features que pour le train
     X_test = build_features_with_diff(test_df, drop_id_cols=True)
     if args.id_col in X_test.columns:
         X_test = X_test.drop(columns=[args.id_col])
@@ -63,16 +51,12 @@ def main():
     X_test = X_test.select_dtypes(include=["number"]).copy()
     print(f"[debug] Features numériques après filtrage: {X_test.shape}")
 
-    # Chargement du modèle
     reg = joblib.load(args.model)
 
-    # Prédiction du goal diff
     diff_pred = reg.predict(X_test)
 
-    # Conversion en one-hot
     proba = goal_diff_to_onehot(diff_pred)
 
-    # Construction de la soumission
     submit_body = pd.DataFrame(proba, columns=SUBMIT_COLS)
     submit = pd.concat([ids.reset_index(drop=True), submit_body], axis=1)
     submit.columns = [args.id_col] + SUBMIT_COLS
