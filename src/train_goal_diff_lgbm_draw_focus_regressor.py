@@ -19,35 +19,22 @@ from src.print_result import print_report
 from src.features_diff import build_features_with_diff
 
 
-# -------------------------------------------------------------------
-#  Construction de X et y (goal diff)
-# -------------------------------------------------------------------
 def build_Xy_goal_diff(train_csv: str, y_supp_csv: str):
-    """
-    Construit X (features enrichies) et y (GOAL_DIFF_HOME_AWAY).
 
-    - train_csv : CSV fusionné, ex: data/processed/train_merged.csv
-      (doit contenir une colonne 'ID')
-    - y_supp_csv : Y_train_supp_aligned.csv (colonnes ['ID', 'GOAL_DIFF_HOME_AWAY'])
-    """
     X_raw = pd.read_csv(train_csv)
     if "ID" not in X_raw.columns:
         raise ValueError("Le fichier train_csv doit contenir une colonne 'ID'.")
 
     ids = X_raw["ID"].values
 
-    # Features avec colonnes home/away + diff
     X = build_features_with_diff(X_raw, drop_id_cols=True)
 
-    # Sécurité si jamais ID reste
     if "ID" in X.columns:
         X = X.drop(columns=["ID"])
 
-    # On ne garde que les features numériques
     X = X.select_dtypes(include=["number"]).copy()
     print(f"[debug] Features numériques après filtrage: {X.shape}")
 
-    # Cible = goal diff
     y_supp = pd.read_csv(y_supp_csv)
     if not {"ID", "GOAL_DIFF_HOME_AWAY"}.issubset(y_supp.columns):
         raise ValueError(
@@ -60,16 +47,7 @@ def build_Xy_goal_diff(train_csv: str, y_supp_csv: str):
     return X, y, ids
 
 
-# -------------------------------------------------------------------
-#  Conversion goal diff -> classes
-# -------------------------------------------------------------------
 def goal_diff_to_class(diff: np.ndarray) -> np.ndarray:
-    """
-    Convertit un goal diff en classe:
-        > 0 → 0 (HOME_WINS)
-        = 0 → 1 (DRAW)
-        < 0 → 2 (AWAY_WINS)
-    """
     diff = np.asarray(diff)
     cls = np.zeros_like(diff, dtype=int)
     cls[diff < 0] = 2
@@ -78,13 +56,7 @@ def goal_diff_to_class(diff: np.ndarray) -> np.ndarray:
 
 
 def goal_diff_to_class_with_band(diff: np.ndarray, band: float = 0.5) -> np.ndarray:
-    """
-    Version avec bande autour de 0 pour mieux capter les matchs nuls.
 
-      - if diff >  band  → 0 (HOME)
-      - if |diff| <= band → 1 (DRAW)
-      - if diff < -band  → 2 (AWAY)
-    """
     diff = np.asarray(diff)
     cls = np.zeros_like(diff, dtype=int)
     cls[diff < -band] = 2          # AWAY
@@ -92,9 +64,6 @@ def goal_diff_to_class_with_band(diff: np.ndarray, band: float = 0.5) -> np.ndar
     return cls
 
 
-# -------------------------------------------------------------------
-#  Entraînement + évaluation (focus sur les nuls)
-# -------------------------------------------------------------------
 def train_lgbm_goal_diff_draw_focus(
     train_csv: str,
     y_supp_csv: str,
@@ -103,15 +72,12 @@ def train_lgbm_goal_diff_draw_focus(
     holdout_size: float = 0.1667,
     random_state: int = 42,
 ):
-    # 1) Chargement X, y (goal diff)
     X, y_diff, ids = build_Xy_goal_diff(train_csv, y_supp_csv)
 
-    # Labels de classe dérivés du goal diff (0/1/2) pour le stratify
     y_cls = goal_diff_to_class(y_diff)
 
     assert len(X) == len(y_diff) == len(y_cls), "Longueurs incohérentes entre X et y."
 
-    # 2) Split train / valid / holdout
     print("[info] Split train / valid / holdout ...")
 
     X_train_valid, X_hold, y_train_valid_diff, y_hold_diff, y_train_valid_cls, y_hold_cls = train_test_split(
@@ -138,7 +104,6 @@ def train_lgbm_goal_diff_draw_focus(
         f"[info] Tailles : train={len(X_tr)} | valid={len(X_va)} | holdout={len(X_hold)}"
     )
 
-    # 3) Modèle LightGBM Regressor sur l'écart de buts
     print("[info] Entraînement du LightGBM Regressor sur l'écart de buts ...")
 
     reg = LGBMRegressor(
@@ -167,7 +132,6 @@ def train_lgbm_goal_diff_draw_focus(
     if best_it is None:
         best_it = reg.n_estimators
 
-    # 4) Prédiction & RMSE goal diff
     y_tr_pred_diff = reg.predict(X_tr, num_iteration=best_it)
     y_va_pred_diff = reg.predict(X_va, num_iteration=best_it)
     y_hold_pred_diff = reg.predict(X_hold, num_iteration=best_it)
@@ -180,7 +144,6 @@ def train_lgbm_goal_diff_draw_focus(
         f"[RMSE] train={rmse_tr:.4f} | valid={rmse_va:.4f} | holdout={rmse_hold:.4f}"
     )
 
-    # 5) Tuning du band pour MAXIMISER le F1 de la classe "Draw" (1)
     print("[info] Tuning du seuil pour les matchs nuls (band) en max F1(classe 1) ...")
     candidate_bands = np.linspace(0.1, 2.5, 25)
     best_band = None
@@ -189,7 +152,6 @@ def train_lgbm_goal_diff_draw_focus(
     for b in candidate_bands:
         y_va_pred_cls_tmp = goal_diff_to_class_with_band(y_va_pred_diff, band=b)
 
-        # F1 pour la classe 1 (match nul) vs le reste
         y_true_bin = (y_va_cls == 1).astype(int)
         y_pred_bin = (y_va_pred_cls_tmp == 1).astype(int)
         f1_draw = f1_score(y_true_bin, y_pred_bin)
@@ -200,7 +162,6 @@ def train_lgbm_goal_diff_draw_focus(
 
     print(f"[tuning] Meilleur band = {best_band:.3f} | F1 Draw (val) = {best_score:.4f}")
 
-    # 6) Applique ce band sur les 3 splits et calcule les accuracies globales
     y_tr_pred_cls = goal_diff_to_class_with_band(y_tr_pred_diff, band=best_band)
     y_va_pred_cls = goal_diff_to_class_with_band(y_va_pred_diff, band=best_band)
     y_hold_pred_cls = goal_diff_to_class_with_band(y_hold_pred_diff, band=best_band)
@@ -209,7 +170,6 @@ def train_lgbm_goal_diff_draw_focus(
     acc_va = accuracy_score(y_va_cls, y_va_pred_cls)
     acc_hold = accuracy_score(y_hold_cls, y_hold_pred_cls)
 
-    # 7) Matrice de confusion & rapport sur le hold-out (jeu le plus honnête)
     cm = confusion_matrix(y_hold_cls, y_hold_pred_cls)
     clf_report = classification_report(
         y_hold_cls,
@@ -218,13 +178,11 @@ def train_lgbm_goal_diff_draw_focus(
         target_names=["Home (0)", "Draw (1)", "Away (2)"],
     )
 
-    # 8) Top features les plus importantes
     importances = reg.feature_importances_
     feature_names = np.array(X.columns)
     order = np.argsort(importances)[::-1]
     top_features = feature_names[order[:20]].tolist()
 
-    # 9) Impression du rapport via print_report (même format que ton script actuel)
     print_report(
         train_acc=acc_tr,
         val_acc=acc_va,
@@ -238,7 +196,6 @@ def train_lgbm_goal_diff_draw_focus(
         X_ho_sel=X_hold,
     )
 
-    # 10) Sauvegarde du modèle + band
     out_path = Path(model_out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(
@@ -252,9 +209,6 @@ def train_lgbm_goal_diff_draw_focus(
     print(f"\n[ok] Modèle LightGBM goal_diff + band (focus draws) sauvegardé dans {out_path.resolve()}")
 
 
-# -------------------------------------------------------------------
-#  CLI
-# -------------------------------------------------------------------
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
