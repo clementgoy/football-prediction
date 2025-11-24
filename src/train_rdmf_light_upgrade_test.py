@@ -12,7 +12,6 @@ from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier, HistG
 from sklearn.feature_selection import VarianceThreshold
 import joblib
 
-# ---------------- chemins ----------------
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 DATA = ROOT / "data"
@@ -43,7 +42,6 @@ def toc(t0: float, label: str = "done") -> None:
     dt = time.perf_counter() - t0
     ok(f"{label} in {dt:.1f}s")
 
-# ---------------- chargement ----------------
 def load_data() -> Tuple[pd.DataFrame, pd.DataFrame, Optional[pd.DataFrame]]:
     if not X_PATH.exists():
         raise FileNotFoundError(f"Introuvable: {X_PATH}")
@@ -64,7 +62,6 @@ def load_data() -> Tuple[pd.DataFrame, pd.DataFrame, Optional[pd.DataFrame]]:
         ok("Lecture via engine='pyarrow'")
     except Exception as _:
         info("PyArrow indisponible → lecture par morceaux (chunks)")
-        # Streaming CSV with chunks, casting to float32 (again to save RAM)
         chunks = []
         for chunk in pd.read_csv(
             X_PATH,
