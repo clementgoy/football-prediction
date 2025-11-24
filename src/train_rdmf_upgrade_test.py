@@ -1,4 +1,3 @@
-# src/train_tabular_baseline.py
 from __future__ import annotations
 from pathlib import Path
 from typing import Dict, Any, Tuple, Optional
@@ -12,7 +11,6 @@ from sklearn.impute import SimpleImputer
 from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier, HistGradientBoostingClassifier
 import joblib
 
-# ---------- chemins (robustes au placement dans src/) ----------
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 DATA = ROOT / "data"
@@ -21,8 +19,8 @@ MODELS = ROOT / "models"
 MODELS.mkdir(parents=True, exist_ok=True)
 
 X_PATH = PROCESSED / "train_merged.csv"
-Y_ONEHOT_PATH = PROCESSED / "y_train_aligned.csv"          # colonnes: ID, HOME_WINS, DRAW, AWAY_WINS
-Y_SUPP_PATH   = PROCESSED / "y_train_supp_aligned.csv"     # colonnes: ID, GOAL_DIFF_HOME_AWAY (optionnel)
+Y_ONEHOT_PATH = PROCESSED / "y_train_aligned.csv"        
+Y_SUPP_PATH   = PROCESSED / "y_train_supp_aligned.csv" 
 
 def info(msg: str) -> None:
     print(f"\n[info] {msg}")
@@ -30,7 +28,6 @@ def info(msg: str) -> None:
 def ok(msg: str) -> None:
     print(f"[ok] {msg}")
 
-# ---------- chargement ----------
 def load_data() -> Tuple[pd.DataFrame, pd.DataFrame, Optional[pd.DataFrame]]:
     if not X_PATH.exists():
         raise FileNotFoundError(f"Introuvable: {X_PATH}")
@@ -54,7 +51,6 @@ def load_data() -> Tuple[pd.DataFrame, pd.DataFrame, Optional[pd.DataFrame]]:
 
     return X, y1, y_supp
 
-# ---------- préparation ----------
 def prepare_features_labels(
     X: pd.DataFrame,
     y_onehot: pd.DataFrame,
@@ -69,7 +65,7 @@ def prepare_features_labels(
     # classes (0,1,2)
     y_cls = merged[["HOME_WINS", "DRAW", "AWAY_WINS"]].values.argmax(axis=1)
 
-    # features = colonnes numériques uniquement (sécurise le modèle)
+    # features = colonnes numériques uniquement
     feature_cols_all = [c for c in merged.columns if c not in ("ID", "HOME_WINS", "DRAW", "AWAY_WINS")]
     num_cols = merged[feature_cols_all].select_dtypes(include=[np.number]).columns
     dropped = len(feature_cols_all) - len(num_cols)
@@ -78,7 +74,7 @@ def prepare_features_labels(
 
     X_num = merged[num_cols].copy()
 
-    # imputation simple à 0.0 (les forêts y sont peu sensibles)
+    # imputation simple à 0.0
     imputer = SimpleImputer(strategy="constant", fill_value=0.0)
     X_imp = pd.DataFrame(imputer.fit_transform(X_num), columns=num_cols, index=X_num.index)
 
@@ -132,7 +128,7 @@ def make_candidates(random_state: int = 42) -> Dict[str, Any]:
         max_features="sqrt",
         n_jobs=-1,
         random_state=random_state,
-        class_weight="balanced_subsample",  # équilibre classes rares (ex: DRAW)
+        class_weight="balanced_subsample",  # équilibre classes pour draw qui est rarement predit si,non
     )
 
     et = ExtraTreesClassifier(
@@ -146,23 +142,21 @@ def make_candidates(random_state: int = 42) -> Dict[str, Any]:
         class_weight="balanced_subsample",
     )
 
-    # NB: HGB gère bien les NA mais on a déjà imputé 0.0 (simple).
     hgb = HistGradientBoostingClassifier(
         loss="log_loss",
         learning_rate=0.06,
         max_depth=None,            # la profondeur effective est gérée par max_leaf_nodes
-        max_leaf_nodes=63,         # feuilles pas trop nombreuses (biais/variance)
+        max_leaf_nodes=63,         # feuilles pas trop nombreuses 
         min_samples_leaf=50,       # régularisation simple
         l2_regularization=0.0,
-        max_bins=255,              # bins fins (tabulaire souvent ok)
+        max_bins=255,              # bins fins
         early_stopping=True,
-        validation_fraction=0.1,   # HGB garde une partie du train pour le stop (indépendant de notre split)
+        validation_fraction=0.1,   # HGB garde une partie du train pour le stop
         random_state=random_state,
     )
 
     return {"rf": rf, "et": et, "hgb": hgb}
 
-# ---------- entraînement & sélection ----------
 def train_and_select(
     X: pd.DataFrame,
     y: np.ndarray,
