@@ -4,8 +4,6 @@ __pycache__/
 .mlruns/
 mlruns/
 data/
-outputs/
-logs/
 .ipynb_checkpoints/
 .venv/
 __pycache__/

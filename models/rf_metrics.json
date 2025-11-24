@@ -1,0 +1,12 @@
+{
+  "train_accuracy": 0.9995935510093483,
+  "val_accuracy": 0.4973587972368956,
+  "holdout_accuracy": 0.4839496139780577,
+  "n_samples": {
+    "train": 7381,
+    "val": 2461,
+    "holdout": 2461
+  },
+  "n_features_total": 2094,
+  "n_features_used": 800
+}

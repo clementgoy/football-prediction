@@ -1,23 +1,15 @@
-#!/usr/bin/env python3
 import argparse, os, numpy as np, pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 from sklearn.utils.class_weight import compute_class_weight
 from lightgbm import LGBMClassifier
-import lightgbm as lgb  # pour les callbacks
+import lightgbm as lgb  
 import joblib
 
 from src.print_result import print_report
 from src.build_dataset import build_Xy
 
 def load_train_processed(train_csv, y_csv):
-    """
-    - Charge X_raw, y_raw
-    - Vérifie l'absence de fuite (colonnes cibles dans X)
-    - Aligne par ID via build_Xy (ton helper)
-    - Garde NUMÉRIQUES uniquement, cast float32, NaN -> 0.0
-    - Renvoie (X, y, feat_cols, class_names)
-    """
     X_raw = pd.read_csv(train_csv)
     y_raw = pd.read_csv(y_csv)
 
