@@ -211,7 +211,6 @@ def train_and_select(
         (MODELS / f"{tag}_metrics.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
         (MODELS / f"{tag}_features.json").write_text(json.dumps({"feature_names": list(X.columns)}, indent=2), encoding="utf-8")
 
-        # On garde aussi l'objet clf en mémoire pour pouvoir afficher les perfs du meilleur modele
         results.append({
             "key": key,
             "acc": acc,
@@ -265,7 +264,7 @@ def train_and_select(
         X_ho_sel=X_va, 
     )
 
-    # Pointeur vers le meilleur modele
+    # Trouve vers le meilleur modele
     (MODELS / "best.json").write_text(json.dumps(best, indent=2), encoding="utf-8")
     return best
 
