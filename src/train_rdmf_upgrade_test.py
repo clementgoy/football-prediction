@@ -11,6 +11,8 @@ from sklearn.impute import SimpleImputer
 from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier, HistGradientBoostingClassifier
 import joblib
 
+from src.print_result import print_report
+
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 DATA = ROOT / "data"
