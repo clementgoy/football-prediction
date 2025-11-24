@@ -60,7 +60,6 @@ def ok(msg: str) -> None:
 
 
 def load_data() -> Tuple[pd.DataFrame, np.ndarray]:
-    """Charge X et y, fusionne sur ID et renvoie (X_features, y_labels)."""
     if not TRAIN_X_PATH.exists():
         raise FileNotFoundError(f"Fichier X introuvable: {TRAIN_X_PATH}")
     if not Y_PATH.exists():
@@ -101,7 +100,6 @@ def select_top_features(X: pd.DataFrame, y: np.ndarray, cfg: TrainConfig) -> Lis
         {"feature": X.columns, "importance": rf_fs.feature_importances_}
     ).sort_values("importance", ascending=False)
 
-    # On garde les top_k
     if cfg.fs_top_k is not None and cfg.fs_top_k < len(importances):
         importances_top = importances.head(cfg.fs_top_k).copy()
     else:
@@ -118,7 +116,6 @@ def make_splits(
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, np.ndarray, np.ndarray, np.ndarray]:
     info("Découpage train / validation / hold-out...")
 
-    # D'abord on isole le hold-out
     X_trva, X_ho, y_trva, y_ho = train_test_split(
         X,
         y,
@@ -127,7 +124,6 @@ def make_splits(
         stratify=y,
     )
 
-    # Puis on découpe train / val sur le reste
     val_size = cfg.val_fraction / (1.0 - cfg.holdout_fraction)  # ex: 0.2 / 0.8 = 0.25
     X_tr, X_va, y_tr, y_va = train_test_split(
         X_trva,
