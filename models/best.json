@@ -1,32 +1,33 @@
 {
   "key": "rf",
-  "acc": 0.4904510361641609,
-  "model_path": "/media/clemma/806634a0-6af4-4b54-b68e-52e5d1264f4b/qrt-football-challenge/models/rf_exp015.joblib",
+  "acc": 0.49410808614384394,
+  "model_path": "/media/clemma/806634a0-6af4-4b54-b68e-52e5d1264f4b/qrt-football-challenge/models/rf_none.joblib",
   "meta": {
     "model": "rf",
-    "weight_scheme": "exp015",
-    "val_accuracy": 0.4904510361641609,
+    "weight_scheme": "none",
+    "val_accuracy": 0.49410808614384394,
+    "train_accuracy": 1.0,
     "n_train": 9842,
     "n_val": 2461,
     "n_features": 2094,
     "random_state": 42,
     "confusion_matrix": [
       [
-        883,
-        6,
-        183
+        896,
+        9,
+        167
       ],
       [
-        439,
-        8,
-        190
+        449,
+        9,
+        179
       ],
       [
-        430,
+        435,
         6,
-        316
+        311
       ]
     ],
-    "classification_report": "              precision    recall  f1-score   support\n\n   HOME_WINS     0.5040    0.8237    0.6254      1072\n        DRAW     0.4000    0.0126    0.0244       637\n   AWAY_WINS     0.4586    0.4202    0.4386       752\n\n    accuracy                         0.4905      2461\n   macro avg     0.4542    0.4188    0.3628      2461\nweighted avg     0.4632    0.4905    0.4127      2461\n"
+    "classification_report": "              precision    recall  f1-score   support\n\n   HOME_WINS     0.5034    0.8358    0.6283      1072\n        DRAW     0.3750    0.0141    0.0272       637\n   AWAY_WINS     0.4734    0.4136    0.4414       752\n\n    accuracy                         0.4941      2461\n   macro avg     0.4506    0.4212    0.3657      2461\nweighted avg     0.4610    0.4941    0.4156      2461\n"
   }
 }
