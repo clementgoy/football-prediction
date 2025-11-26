@@ -1,0 +1,27 @@
+{
+  "model": "hgb",
+  "weight_scheme": "none",
+  "val_accuracy": 0.4729784640390085,
+  "n_train": 9842,
+  "n_val": 2461,
+  "n_features": 2094,
+  "random_state": 42,
+  "confusion_matrix": [
+    [
+      805,
+      74,
+      193
+    ],
+    [
+      397,
+      42,
+      198
+    ],
+    [
+      364,
+      71,
+      317
+    ]
+  ],
+  "classification_report": "              precision    recall  f1-score   support\n\n   HOME_WINS     0.5140    0.7509    0.6103      1072\n        DRAW     0.2246    0.0659    0.1019       637\n   AWAY_WINS     0.4477    0.4215    0.4342       752\n\n    accuracy                         0.4730      2461\n   macro avg     0.3955    0.4128    0.3822      2461\nweighted avg     0.4189    0.4730    0.4249      2461\n"
+}

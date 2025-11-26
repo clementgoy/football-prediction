@@ -1,0 +1,27 @@
+{
+  "model": "rf",
+  "weight_scheme": "linear025",
+  "val_accuracy": 0.48760666395774077,
+  "n_train": 9842,
+  "n_val": 2461,
+  "n_features": 2094,
+  "random_state": 42,
+  "confusion_matrix": [
+    [
+      886,
+      2,
+      184
+    ],
+    [
+      447,
+      6,
+      184
+    ],
+    [
+      436,
+      8,
+      308
+    ]
+  ],
+  "classification_report": "              precision    recall  f1-score   support\n\n   HOME_WINS     0.5008    0.8265    0.6237      1072\n        DRAW     0.3750    0.0094    0.0184       637\n   AWAY_WINS     0.4556    0.4096    0.4314       752\n\n    accuracy                         0.4876      2461\n   macro avg     0.4438    0.4152    0.3578      2461\nweighted avg     0.4545    0.4876    0.4083      2461\n"
+}
