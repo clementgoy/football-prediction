@@ -7,7 +7,7 @@ from typing import Dict, Optional, Tuple
 
 import pandas as pd
 
-# ATTENTION : sur UBUNTU mettre "DATA_ROOT = Path("data")" et sur windows : "DATA_ROOT = Path("../data")"
+# sur UBUNTU mettre "DATA_ROOT = Path("data")" et sur windows : "DATA_ROOT = Path("../data")"
 DATA_ROOT = Path("data")
 TRAIN_DIR = DATA_ROOT / "Train_Data"
 TEST_DIR  = DATA_ROOT / "Test_Data"
@@ -17,27 +17,32 @@ Y_SUPP_PATH  = DATA_ROOT / "benchmark_and_extras" / "Y_train_supp.csv"
 
 OUT_DIR = DATA_ROOT / "processed"
 
-
+#Affiche un petit message d’information pour suivre ce que le script est en train de faire.
 def info(msg: str) -> None:
     print(f"\n infooo : {msg}")
 
+#Affiche un message positif pour confirmer qu’une étape s’est bien déroulée.
 def ok(msg: str) -> None:
     print(f"\n Beau gossseeee : {msg}")
 
+#Cherche automatiquement le premier fichier CSV dans un dossier contenant un mot-clé donné.
 def discover_file(directory: Path, contains: str) -> Optional[Path]:
     candidates = sorted(p for p in directory.rglob('*.csv') if contains in p.name)
     return candidates[0] if candidates else None
 
+#Ajoute un préfixe aux colonnes d’un dataframe (sauf celles à exclure), pour éviter les collisions entre tables.
 def enforce_prefix(df: pd.DataFrame, prefix: str, exclude: Tuple[str, ...] = ("ID",)) -> pd.DataFrame:
     rename = {c: f"{prefix}{c}" for c in df.columns if c not in exclude}
     return df.rename(columns=rename)
 
+#Charge un fichier CSV et affiche sa taille pour vérifier que tout est bien lu.
 def read_csv(path: Path, usecols: Optional[list[str]] = None) -> pd.DataFrame:
     info(f"Loading {path.name} ...")
     df = pd.read_csv(path, low_memory=False, usecols=usecols)
     ok(f"{path.name}: {df.shape[0]} rows x {df.shape[1]} cols")
     return df 
 
+# Agrège les statistiques des joueurs par match (somme, moyenne, écart-type), puis ajoute le nombre de joueurs.
 def aggregate_players(df: pd.DataFrame, side_prefix: str) -> pd.DataFrame:
     assert 'ID' in df.columns, "Player table must contain ID"
 
@@ -57,13 +62,14 @@ def aggregate_players(df: pd.DataFrame, side_prefix: str) -> pd.DataFrame:
     ok(f"Aggregated players → {out.shape[0]} rows × {out.shape[1]} cols")
     return out
 
-
+# Fusionne deux dataframes proprement en affichant les dimensions avant/après, pour contrôler ce qu’on garde.
 def safe_merge(left: pd.DataFrame, right: pd.DataFrame, how: str = 'inner') -> pd.DataFrame:
     before = left.shape
     merged = left.merge(right, on='ID', how=how)
     ok(f"Merged {before} and {right.shape} --> {merged.shape}")
     return merged
 
+#Supprime les doublons, garantit qu’un ID apparaît une seule fois et réindexe la table proprement.
 def clean_unique_by_id(df: pd.DataFrame, id_col: str = 'ID') -> pd.DataFrame:
     assert id_col in df.columns, f"Missing id column: {id_col}"
 
@@ -87,6 +93,7 @@ def clean_unique_by_id(df: pd.DataFrame, id_col: str = 'ID') -> pd.DataFrame:
     ok(f"Cleaned by {id_col}: removed {removed} rows; IDs unique: {df[id_col].is_unique}")
     return df
 
+#Construit complètement un dataset (train ou test) en fusionnant équipes + joueurs pour le home et l’away.
 def build_split(*,
     home_team_path: Path,
     away_team_path: Path,
@@ -127,7 +134,7 @@ def build_split(*,
     ok("Split build completeeee")
     return teams
 
-
+# Définit et lit tous les arguments disponibles de la ligne de commande pour personnaliser le merge.
 def parse_args() -> argparse.Namespace: 
     p = argparse.ArgumentParser(description="Merge raw football CSVs into modeling table")
 
@@ -153,7 +160,7 @@ def parse_args() -> argparse.Namespace:
 
     return p.parse_args()
 
-
+# Retrouve automatiquement les bons fichiers CSV (home_team, away_team, players…) dans les répertoires.
 def discover_inputs(train_dir: Optional[Path], test_dir: Optional[Path]) -> Dict[str, Optional[Path]]:
 
     def discover_pair(root_dir: Optional[Path], split: str) -> Dict[str, Optional[Path]]:
@@ -176,6 +183,7 @@ def discover_inputs(train_dir: Optional[Path], test_dir: Optional[Path]) -> Dict
     inputs.update(discover_pair(test_dir,  'test'))
     return inputs
 
+# Charge le fichier Y_train officiel et vérifie que toutes les colonnes attendues sont présentes.
 def load_y_train(y_path: Optional[Path]) -> Optional[pd.DataFrame]:
     if not y_path:
         info("No Y_train provided – skipping targets merge.")
@@ -187,6 +195,7 @@ def load_y_train(y_path: Optional[Path]) -> Optional[pd.DataFrame]:
         raise ValueError(f"Y_train missing columns: {missing}")
     return y[['ID', 'HOME_WINS', 'DRAW', 'AWAY_WINS']]
 
+# Charge le fichier Y_train_supp contenant le goal difference, si disponible.
 def load_y_train_supp(y_supp_path: Optional[Path]) -> Optional[pd.DataFrame]:
     if not y_supp_path:
         info("No Y_train_supp provided – skipping supplementary target merge.")
@@ -198,7 +207,7 @@ def load_y_train_supp(y_supp_path: Optional[Path]) -> Optional[pd.DataFrame]:
         raise ValueError(f"Y_train_supp missing columns: {missing}")
     return y[['ID', 'GOAL_DIFF_HOME_AWAY']]
 
-
+# Sauvegarde les CSV finaux (train + test) et génère un fichier schema.json résumant leur structure.
 def save_artifacts(train_df: pd.DataFrame, test_df: pd.DataFrame, out_dir: Path) -> None: 
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -227,6 +236,7 @@ def save_artifacts(train_df: pd.DataFrame, test_df: pd.DataFrame, out_dir: Path)
         json.dump(schema, f, indent=2)
     ok("Saved schema.json")
 
+# Orchestre l’ensemble du processus : découverte des fichiers, merge, nettoyage, alignement des labels, sauvegarde.
 def main() -> None:
     info("Discovery inputs ...")
     discovered = discover_inputs(TRAIN_DIR, TEST_DIR)
