@@ -1,4 +1,3 @@
-# train_rf_stratkfold.py
 from __future__ import annotations
 from pathlib import Path
 from typing import Tuple, Dict, Any

@@ -1,17 +1,38 @@
 {
-  "key": "rf",
+  "key": "rf_stratkfold",
   "acc": 0.49410808614384394,
-  "model_path": "/media/clemma/806634a0-6af4-4b54-b68e-52e5d1264f4b/qrt-football-challenge/models/rf_none.joblib",
+  "model_path": "/home/emclem/football-prediction/models/rf_stratkfold.joblib",
   "meta": {
     "model": "rf",
-    "weight_scheme": "none",
-    "val_accuracy": 0.49410808614384394,
-    "train_accuracy": 1.0,
-    "n_train": 9842,
-    "n_val": 2461,
+    "weight_scheme": "balanced_subsample",
+    "cv": {
+      "n_splits": 5,
+      "train_acc_mean": 1.0,
+      "train_acc_std": 0.0,
+      "val_acc_mean": 0.4930905147675143,
+      "val_acc_std": 0.00816342378939349,
+      "fold_train_accs": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "fold_val_accs": [
+        0.500253936008126,
+        0.48908075165058407,
+        0.4801829268292683,
+        0.4928861788617886,
+        0.5030487804878049
+      ]
+    },
+    "final_train_accuracy": 1.0,
+    "hold_accuracy": 0.49410808614384394,
+    "n_train_cv": 9842,
+    "n_holdout": 2461,
     "n_features": 2094,
     "random_state": 42,
-    "confusion_matrix": [
+    "confusion_matrix_holdout": [
       [
         896,
         9,
@@ -28,6 +49,6 @@
         311
       ]
     ],
-    "classification_report": "              precision    recall  f1-score   support\n\n   HOME_WINS     0.5034    0.8358    0.6283      1072\n        DRAW     0.3750    0.0141    0.0272       637\n   AWAY_WINS     0.4734    0.4136    0.4414       752\n\n    accuracy                         0.4941      2461\n   macro avg     0.4506    0.4212    0.3657      2461\nweighted avg     0.4610    0.4941    0.4156      2461\n"
+    "classification_report_holdout": "              precision    recall  f1-score   support\n\n   HOME_WINS     0.5034    0.8358    0.6283      1072\n        DRAW     0.3750    0.0141    0.0272       637\n   AWAY_WINS     0.4734    0.4136    0.4414       752\n\n    accuracy                         0.4941      2461\n   macro avg     0.4506    0.4212    0.3657      2461\nweighted avg     0.4610    0.4941    0.4156      2461\n"
   }
 }
