@@ -1,50 +1,144 @@
-- Données brutes dans `data/` (non versionnées dans git).
-- EDA & protos dans `notebooks/`.
-- Code dans `src/`.
-- Suivi d'expé: MLflow (par défaut local ./mlruns) + CSV `logs/experiments.csv`.
+# Projet de parcours IA – Prédiction de résultats de matchs de football - Challenge Data
 
-<strong>Vision d’ensemble du pipeline complet : </strong>
-Étape	Script utilisé	Rôle
-1. Fusion / Nettoyage brut:	merge_data.py	--> Construit train_merged.csv et test_merged.csv à partir des 4×2 CSV bruts
-2. Construction X/y:	build_dataset.py + features.py	--> Nettoie, sélectionne les colonnes utiles, et prépare les matrices d’entraînement
-3. Entraînement modèle:	train.py + models.py + utils.py	--> Entraîne un Gradient Boosting (ou autre)
-4. Prédiction / Soumission:	predict.py	--> Utilise le modèle entraîné pour prédire sur test_merged.csv
+Ce projet s’inscrit dans le cadre d’un challenge de data science portant sur la **prédiction de l’issue de matchs de football** (victoire à domicile, match nul ou victoire à l’extérieur) à partir de statistiques agrégées au niveau des équipes et des joueurs.
+
+L’objectif est de construire un pipeline complet de machine learning incluant :
+- la préparation et la fusion des données,
+- l’ingénierie de variables,
+- l’entraînement et l’évaluation de différents modèles,
+- la génération de fichiers de prédiction compatibles avec la plateforme du challenge.
+
+## Architecture du projet
+
+Fichiers principaux : 
+
+├── Data/
+│   ├── benchmark_and_extras  # Données brutes (train / test)
+│   ├── processed/            # Données après fusion et préparation
+│   ├── Test_Data             # Données brutes (train / test)
+│   ├── Train_Data            # Données brutes (train / test)
+|
+├── models/
+│   ├── processed/                # Fichiers csv des prédictions à soumettre au Challenge Data
+│   ├── best.json                 # Référence du meilleur modèle/paramétrage retenu
+│   │
+│   ├── features.json           # Liste des features utilisées (par expérience)
+│   ├── metrics.json            # Résultats/métriques associées (accuracy, etc.)
+│   │
+│   ├── random_forest.pkl       # Modèles RandomForest sauvegardés
+│   ├── lgbm.pkl                # Modèles LightGBM sauvegardés
+│   └── *.csv                   # Ex: importances de features / exports d’analyse
+|
+├── notebook/
+│   ├── stats_infos_sur_data.ipynb  # Fichier d'analyse des données
+│
+├── src/
+│   ├── merge_data.py       # Fusion des différentes tables
+│   ├── build_dataset.py    # Construction du dataset final
+│   ├── features.py         # Feature engineering
+│   ├── train_*.py          # Entraînements des modèles
+│   ├── predict_*.py        # Prédictions des matchs
+│
+├── requirements.txt
+├── README.md
+├── .gitignore
+└── Makefile
+
+## Prérequis
+
+- Python
+- pip
+- numpy
+- pandas
+- scikit-learn
+- lightgbm
+- xgboost
+- catboost
+- mlflow
+- optuna
+- pyyaml
+- joblib
+
+## Installation
+
+### 1️. Cloner le dépôt
+
+```bash
+git clone https://github.com/clementgoy/football-prediction.git
+cd <nom-du-depot>
+```
+
+### 2️. Créer un environnement virtuel
+
+Avec venv
+
+```bash
+python -m venv venv
+source venv/bin/activate  # Linux / macOS
+venv\Scripts\activate     # Windows
+```
 
 
-<strong>Rôle central de merge_data.py</strong>
+### 3️. Installer les dépendances
 
-C’est le cœur du pipeline de préparation des données.
-Il remplace et englobe plusieurs fonctions que tu aurais pu coder à la main avant.
+```bash
+pip install -r requirements.txt
+```
 
-En résumé, il fait :
+## Données
 
-Lecture automatique de tous les fichiers CSV bruts du challenge (home/away × team/player).
+Les données du challenge doivent être placées dans le dossier Data/.
 
-Nettoyage → suppression des doublons, harmonisation, tri par ID.
+Elles comprennent notamment :
+	•	les statistiques des équipes à domicile et à l’extérieur,
+	•	les statistiques des joueurs,
+	•	les fichiers Y_train et Y_train_supp,
+	•	les données de test.
 
-Agrégation → combine les données des joueurs (sum/mean/std par match).
+## Préparation des données
 
-Fusion complète → jointure des 4 tables sur ID.
+Fusion et nettoyage des données
 
-Ajout des labels Y_train (si fournis).
+```bash
+make merge
+```
 
-Sauvegarde → écrit deux fichiers finaux :
-
-    - train_merged.csv
-
-    - test_merged.csv
-
-    - un petit schema.json récapitulatif (noms, dimensions…).
+Cette étape :
+	•	fusionne les tables équipes et joueurs,
+	•	gère les valeurs manquantes,
+	•	crée des variables dérivées (différences domicile / extérieur).
 
 
-<strong>Construction des matrices X / y</strong>
+## Entraînement des modèles
 
-Cette étape transforme les données fusionnées du dossier data/processed/ en features prêtes pour l’entraînement (X) et en étiquettes de classes (y).
+Entraînements 
 
-Les features (X) proviennent du fichier train_merged.csv, généré par merge_data.py.
-Elles contiennent uniquement des statistiques numériques (tirs, passes, fautes, etc.) pour chaque match.
+```bash
+make train ##_<nom_de_la_methode>
+```
 
-Les étiquettes (y) proviennent du fichier Y_train_1rknArQ.csv, qui indique le résultat réel du match sous forme one-hot :
-HOME_WINS, DRAW, AWAY_WINS.
 
-Donc on nettoie et filtre mes colonnes pertinentes (supp des ID inutiles) et convertit la cible one-hot en classes numériques. 
+## Tests et évaluation
+
+Les performances sont évaluées à l’aide :
+	•	d’un jeu de validation interne,
+	•	d’une validation croisée stratifiée,
+	•	de comparaisons entre différents hyperparamètres et modèles (Random Forest, Gradient Boosting, etc.).
+
+Les résultats permettent de sélectionner le modèle le plus robuste avant soumission.
+
+
+## Génération des prédictions
+
+Prédictions 
+
+```bash
+make predict ##_<nom_de_la_methode>
+```
+
+Cette commande génère un fichier .csv conforme au format attendu par la plateforme du challenge
+
+
+## Auteurs
+
+Projet réalisé dans le cadre d’un challenge académique en intelligence artificielle par Clément GOY et Emma TREMLET
