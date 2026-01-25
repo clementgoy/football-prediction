@@ -1,3 +1,5 @@
+# Encore une fois (comme pour merge_data_streaming) ce fichier a été crée dans l'optique d'alléger l'entrainement afin qu'il puisse être supporté par mon pc perso et que je puisse avancer même pendant les vacances.
+
 from __future__ import annotations
 from pathlib import Path
 from typing import Dict, Any, Tuple, Optional, List
@@ -44,31 +46,35 @@ def toc(t0: float, label: str = "done") -> None:
 
 def load_data() -> Tuple[pd.DataFrame, pd.DataFrame, Optional[pd.DataFrame]]:
     if not X_PATH.exists():
-        raise FileNotFoundError(f"Introuvable: {X_PATH}")
+        raise FileNotFoundError(f"Fichier X introuvable : {X_PATH}")
     if not Y_ONEHOT_PATH.exists():
-        raise FileNotFoundError(f"Introuvable: {Y_ONEHOT_PATH}")
+        raise FileNotFoundError(f"Fichier Y introuvable : {Y_ONEHOT_PATH}")
 
-    info("Chargement X …")
+    info("Chargement X (optimisé pour ma petite RAM)...")
     t0 = tic()
     X: Optional[pd.DataFrame] = None
 
     try:
+        # On essaie d'utiliser PyArrow
         import pyarrow
         X = pd.read_csv(
             X_PATH,
             engine="pyarrow",
             memory_map=True
         )
-        ok("Lecture via engine='pyarrow'")
+        ok("Ouverture avec PyArrow réussie (c'est le top !)")
     except Exception as _:
-        info("PyArrow indisponible → lecture par morceaux (chunks)")
+        # Si PyArrow plante
+        info("PyArrow marche pas -> On lit par petits bouts (chunks) pour pas saturer la mémoire")
         chunks = []
         for chunk in pd.read_csv(
             X_PATH,
-            chunksize=20_000,
+            chunksize=20_000, # On lit 20 000 lignes à la fois
             low_memory=False
         ):
-            # Downcast numerics to float32/int32 to save RAM
+            # ASTUCE : Pour gagner de la place, on réduit la taille des nombres
+            # float64 -> float32 
+            # int64 -> int optimisé
             for c in chunk.columns:
                 col = chunk[c]
                 if pd.api.types.is_float_dtype(col):
@@ -77,21 +83,22 @@ def load_data() -> Tuple[pd.DataFrame, pd.DataFrame, Optional[pd.DataFrame]]:
                     chunk[c] = pd.to_numeric(col, downcast="integer")
                 
             chunks.append(chunk)
+        # On recolle tous les morceaux à la fin
         X = pd.concat(chunks, axis=0, ignore_index=True)
 
-    toc(t0, f"X: {X.shape[0]} lignes × {X.shape[1]} colonnes")
+    toc(t0, f"X chargé : {X.shape[0]} lignes × {X.shape[1]} colonnes")
 
-    info("Chargement y one-hot …")
+    info("Chargement y (one-hot) ...")
     t0 = tic()
     y1 = pd.read_csv(Y_ONEHOT_PATH, low_memory=False)
-    toc(t0, f"y_onehot: {y1.shape[0]} lignes × {y1.shape[1]} colonnes")
+    toc(t0, f"y_onehot : {y1.shape[0]} lignes")
 
     y_supp = None
     if Y_SUPP_PATH.exists():
         y_supp = pd.read_csv(Y_SUPP_PATH, low_memory=False)
-        ok(f"y_supp: {y_supp.shape[0]} lignes × {y_supp.shape[1]} colonnes")
+        ok(f"y_supp chargé (avec la différence de buts)")
     else:
-        info("Pas de y_supp (OK) — pondérations par écart de buts désactivées.")
+        info("Pas de différence de buts dispo, on fera sans.")
 
     return X, y1, y_supp
 
@@ -102,10 +109,10 @@ def prepare_features_labels(
 ) -> Tuple[pd.DataFrame, np.ndarray, pd.Index, List[str]]:
     need = ["ID", "HOME_WINS", "DRAW", "AWAY_WINS"]
     if not set(need).issubset(y_onehot.columns):
-        raise ValueError("y_onehot doit contenir ID, HOME_WINS, DRAW, AWAY_WINS")
+        raise ValueError("Il manque des colonnes dans y_onehot (ID, HOME_WINS...)")
 
     merged = X.merge(y_onehot[need], on="ID", how="inner")
-    ok(f"Alignement X↔y: {merged.shape[0]} lignes")
+    ok(f"Fusion X <-> y OK : {merged.shape[0]} lignes")
 
     y_cls = merged[["HOME_WINS", "DRAW", "AWAY_WINS"]].values.argmax(axis=1)
 
@@ -114,34 +121,35 @@ def prepare_features_labels(
     num_cols = merged[feat_cols].select_dtypes(include=[np.number]).columns.tolist()
     dropped = len(feat_cols) - len(num_cols)
     if dropped > 0:
-        info(f"Colonnes non numériques écartées: {dropped}")
+        info(f"On a viré {dropped} colonnes pas numériques.")
 
     X_num = merged[num_cols].copy()
 
-    # downcast float -> float32 pour économiser la RAM
+    # Reductions de type encore une fois pour la RAM (float64 -> float32)
     for c in X_num.columns:
         if np.issubdtype(X_num[c].dtype, np.floating):
             X_num[c] = X_num[c].astype(np.float32, copy=False)
         elif np.issubdtype(X_num[c].dtype, np.integer):
             X_num[c] = pd.to_numeric(X_num[c], downcast="integer")
 
-    # imputation simple 0.0
+    # Remplissage des vides (NaN) par 0
     imputer = SimpleImputer(strategy="constant", fill_value=0.0)
     X_imp = pd.DataFrame(imputer.fit_transform(X_num), columns=num_cols, index=X_num.index)
     X_imp = X_imp.astype(np.float32)  
 
-    # sélection top-k par variance
+    # Sélection des features pour alléger le modèle (VarianceThreshold manuel)
     if n_features_max is not None and X_imp.shape[1] > n_features_max:
-        info(f"Sélection simple par variance → top {n_features_max}/{X_imp.shape[1]}")
+        info(f"Y'a trop de colonnes ({X_imp.shape[1]}), on garde que les {n_features_max} plus 'tordues' (variance élevée).")
         # on calcule la variance colonne par colonne
         vars_ = X_imp.var(axis=0).to_numpy()
+        # On trie pour garder celles qui bougent le plus
         top_idx = np.argsort(vars_)[::-1][:n_features_max]
         keep_cols = [X_imp.columns[i] for i in top_idx]
         X_imp = X_imp[keep_cols]
     else:
         keep_cols = list(X_imp.columns)
 
-    ok(f"Features finales: {X_imp.shape[0]} lignes × {X_imp.shape[1]} colonnes")
+    ok(f"Features prêtes pour l'entraînement : {X_imp.shape[0]} lignes × {X_imp.shape[1]} colonnes")
     return X_imp, y_cls, merged["ID"], keep_cols
 
 def build_sample_weights(
@@ -227,7 +235,7 @@ def train_and_select(
     feature_names: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
 
-    # split simple
+    # Découpage train/val simple
     sss = StratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=random_state)
     (tr_idx, va_idx), = sss.split(X, y)
 
@@ -241,14 +249,14 @@ def train_and_select(
     results = []
 
     for key, clf in models.items():
-        info(f"Entraînement modèle '{key}' (poids: {weight_scheme}) …")
+        info(f"Test du modèle '{key}' avec poids '{weight_scheme}' ...")
         t0 = tic()
         clf.fit(X_tr, y_tr, sample_weight=w_tr)
-        toc(t0, f"fit {key}")
+        toc(t0, f"Entraînement {key} réussi")
 
         pred = clf.predict(X_va)
         acc = accuracy_score(y_va, pred)
-        ok(f"{key}: val_accuracy = {acc:.4f}")
+        ok(f"Résultat {key}: accuracy = {acc:.4f}")
 
         rep = classification_report(
             y_va, pred,
@@ -257,7 +265,7 @@ def train_and_select(
         )
         cm = confusion_matrix(y_va, pred).tolist()
 
-        # Sauvegardes
+        # On sauvegarde le modèle
         tag = f"{key}_{weight_scheme}"
         model_path = MODELS / f"{tag}.joblib"
         joblib.dump(clf, model_path)
@@ -283,8 +291,9 @@ def train_and_select(
 
         results.append({"key": key, "acc": acc, "model_path": str(model_path), "meta": meta})
 
+    # On garde le meilleur
     best = max(results, key=lambda r: r["acc"])
-    ok(f"Meilleur: {best['key']} (acc={best['acc']:.4f}) → {best['model_path']}")
+    ok(f"Le meilleur est : {best['key']} (score={best['acc']:.4f}) -> {best['model_path']}")
 
     (MODELS / "best.json").write_text(json.dumps(best, indent=2), encoding="utf-8")
     return best
@@ -294,13 +303,13 @@ def main() -> None:
     X, y, ids, kept_features = prepare_features_labels(X_raw, y_onehot, n_features_max=N_FEATURES_MAX)
 
     for scheme in ["none", "linear025"]:
-        info(f"--- Schéma de poids: {scheme} ---")
+        info(f"--- Test du schéma : {scheme} ---")
         _ = train_and_select(X, y, ids, y_supp,
                              weight_scheme=scheme,
                              random_state=RANDOM_STATE,
                              feature_names=kept_features)
 
-    ok("Terminé. Regarde le dossier 'models/' (json + joblib).")
+    ok("Tout est fini. Les modèles sont dans le dossier 'models/'.")
 
 if __name__ == "__main__":
     main()

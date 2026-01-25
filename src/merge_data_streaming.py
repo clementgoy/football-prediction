@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import argparse  # laissé même si non utilisé (pas bloquant)
+import argparse 
 import json
 from pathlib import Path
 from typing import Dict, Optional, Tuple
@@ -25,31 +25,35 @@ def ok(msg: str) -> None:
     print(f"\n Beau gossseeee : {msg}")
 
 #Return the first CSV file in *directory* whose filename contains a token. 
-#Used for lightweight auto-discovery when users pass only a folder.
-#Recursive so it goes even in the folders contains in the data folder (we want to keep the architercture of the challenge)
+#C'est utilisé pour trouver les fichiers tout seul si on donne juste le dossier
+#C'est récursif pour aller chercher dans les sous-dossiers (pratique pour garder la structure du challenge)
 def discover_file(directory: Path, contains: str) -> Optional[Path]:
     candidates = sorted(p for p in directory.rglob('*.csv') if contains in p.name)
     return candidates[0] if candidates else None
 
-#Add a prefix to all columns except those in *exclude*.
+#Ajoute un préfixe à toutes les colonnes sauf celles qu'on veut exclure (genre l'ID)
 def enforce_prefix(df: pd.DataFrame, prefix: str, exclude: Tuple[str, ...] = ("ID",)) -> pd.DataFrame:
     rename = {c: f"{prefix}{c}" for c in df.columns if c not in exclude}
     return df.rename(columns=rename)
 
-#Read a CSV with sane defaults and short progress logs.
+#Lit un CSV avec des paramètres par défaut un peu optimisés et affiche un petit message
 def read_csv(path: Path, usecols: Optional[list[str]] = None) -> pd.DataFrame:
-    info(f"Loading {path.name} ...")
+    info(f"Chargement de {path.name} ...")
     df = pd.read_csv(path, low_memory=False, usecols=usecols)
-    ok(f"{path.name}: {df.shape[0]} rows x {df.shape[1]} cols")
+    ok(f"{path.name} chargé : {df.shape[0]} lignes x {df.shape[1]} colonnes")
     return df
 
 def aggregate_players_from_csv(path: Path, side_prefix: str, chunksize: int = 100_000) -> pd.DataFrame:
     """
-    Aggregate a *player-level* CSV to one row per ID using streaming to limit memory:
-      - sum, mean, std for every numeric column
-      - {side_prefix}player_count (rows per ID)
+    Alors là c'est la fonction un peu spéciale pour mon PC qui n'a pas beaucoup de RAM.
+    Au lieu de tout charger d'un coup (ce qui fait planter mon ordi), on lit le fichier petit bout par petit bout (streaming/chunks).
+    Pour chaque joueur :
+      - On calcule la somme, la moyenne et l'écart-type (std) des stats.
+      - On compte le nombre d'entrées.
+    
+    Ca m'a permit de travailler pendant les vacances notament quand je n'avais pas accès à l'ordinateur de la salle ia.
     """
-    info(f"Streaming aggregate of {path.name} ...")
+    info(f"Traitement en mode streaming (pour économiser la RAM) de {path.name} ...")
 
     # etit échantillon pour détecter les colonnes numériques
     sample = pd.read_csv(path, nrows=2000, low_memory=False)
@@ -60,9 +64,9 @@ def aggregate_players_from_csv(path: Path, side_prefix: str, chunksize: int = 10
     # On ne charge que ID + colonnes numériques
     usecols = ['ID'] + numeric_cols
 
-    sum_acc   = None   # DataFrame index=ID, cols=numeric_cols
-    sumsq_acc = None   # idem, pour variance
-    count_acc = None   # Series index=ID
+    sum_acc   = None  
+    sumsq_acc = None  
+    count_acc = None
 
     # Lecture par morceaux
     for chunk in pd.read_csv(path, low_memory=False, usecols=usecols, chunksize=chunksize):
@@ -77,7 +81,7 @@ def aggregate_players_from_csv(path: Path, side_prefix: str, chunksize: int = 10
         sumsq_acc = sumsq  if sumsq_acc is None else sumsq_acc.add(sumsq, fill_value=0)
         count_acc = counts if count_acc is None else count_acc.add(counts, fill_value=0)
 
-    # Finalisation: mean, std
+    # Finalisation : mean, std
     mean = sum_acc.div(count_acc, axis=0)
     var  = sumsq_acc.div(count_acc, axis=0) - (mean ** 2)
     std  = var.clip(lower=0).pow(0.5)
@@ -93,98 +97,56 @@ def aggregate_players_from_csv(path: Path, side_prefix: str, chunksize: int = 10
     ok(f"Aggregated players (stream) → {out.shape[0]} rows × {out.shape[1]} cols")
     return out
 
-"""Aggregate player-level rows to one row per match (ID).
-Numeric columns are aggregated with ``sum``, ``mean``, and ``std``. Column
-names are flattened using the pattern ``{side_prefix}{feature}_{agg}``.
-Also adds ``{side_prefix}player_count`` as the number of player rows per match.
-"""
-def aggregate_players(df: pd.DataFrame, side_prefix: str) -> pd.DataFrame:
-    assert 'ID' in df.columns, "Player table must contain ID"
-
-    # Ne garder que les colonnes numériques + ID pour grouper
-    numeric = df.select_dtypes(include=['number']).copy()
-    numeric['ID'] = df['ID']
-
-    # Colonnes à agréger (toutes sauf ID)
-    cols = [c for c in numeric.columns if c != 'ID']
-
-    # Agrégations
-    out = numeric.groupby('ID')[cols].agg(['sum', 'mean', 'std'])
-
-    # Aplatir MultiIndex
-    #    to_flat_index() renvoie des tuples (col, agg)
-    out.columns = [f"{side_prefix}{col}_{agg}" for col, agg in out.columns.to_flat_index()]
-
-    # Ajouter le nombre de lignes joueur par match
-    counts = df.groupby('ID').size().rename(f"{side_prefix}player_count")
-    out = out.join(counts)
-
-    # Reset index
-    out = out.reset_index()
-    ok(f"Aggregated players → {out.shape[0]} rows × {out.shape[1]} cols")
-    return out
-
-#Merge two tables on ``ID``
+#Fonction pour fusionner (merge) deux tables sur l'ID sans se prendre la tête
 def safe_merge(left: pd.DataFrame, right: pd.DataFrame, how: str = 'inner') -> pd.DataFrame:
     before = left.shape
     merged = left.merge(right, on='ID', how=how)
-    ok(f"Merged {before} and {right.shape} --> {merged.shape}")
+    ok(f"Fusion de {before} avec {right.shape} --> Résultat : {merged.shape}")
     return merged
 
 def clean_unique_by_id(df: pd.DataFrame, id_col: str = 'ID') -> pd.DataFrame:
-    """Ensure one and only one row per ``id_col`` and drop exact duplicates.
-
-    Steps (with short logs):
-    1) Drop exact duplicate rows (all columns identical)
-    2) Drop duplicate IDs (keep first occurrence)
-    3) Sort by ID and reset index for reproducibility
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Input dataframe after merges/aggregations.
-    id_col : str
-        Name of the identifier column. Defaults to ``'ID'``.
-
-    Returns
-    -------
-    pd.DataFrame
-        Cleaned dataframe with unique IDs.
     """
-    assert id_col in df.columns, f"Missing id column: {id_col}"
+    Nettoyage pour être sûr d'avoir une seule ligne par ID.
+    Étapes :
+    1) Vire les doublons exacts
+    2) Vire les doublons d'ID (garde le premier)
+    3) Trie par ID pour que ce soit propre
+    """
+    assert id_col in df.columns, f"Il manque la colonne ID : {id_col}"
 
-    # Drop exact duplicate rows
+    # Vire les lignes complètements identiques
     n_before = len(df)
     dup_all = int(df.duplicated(keep='first').sum())
     if dup_all:
-        info(f"Found {dup_all} exact duplicate rows → dropping…")
+        info(f"Y'avait {dup_all} doublons exacts -> poubelle !")
         df = df.drop_duplicates(keep='first')
 
-    # Drop duplicate IDs
+    # Vire les IDs en double
     dups_mask = df.duplicated(subset=[id_col], keep='first')
     n_dup_ids = int(dups_mask.sum())
     if n_dup_ids:
-        info(f"Found {n_dup_ids} duplicate {id_col}s → keeping first, dropping others…")
+        info(f"Y'avait {n_dup_ids} IDs en double : on garde le premier et on jette les autres.")
         df = df[~dups_mask].copy()
 
-    # Sort and reset index
+    # Petit tri pour faire propre
     if id_col in df.columns:
         df = df.sort_values(id_col).reset_index(drop=True)
 
     n_after = len(df)
     removed = n_before - n_after
-    ok(f"Cleaned by {id_col}: removed {removed} rows; IDs unique: {df[id_col].is_unique}")
+    ok(f"Nettoyage par ID fini : {removed} lignes supprimées. IDs uniques : {df[id_col].is_unique}")
     return df
 
 
-#the heart of this file : 
+#Le cœur du fichier : ici on construit tout !
 
-"""Build a modeling table for one split (train or test).
-Steps:
-1) Load home/away **team** tables and apply prefixes
-2) Merge team tables on ``ID`` (``inner`` by default or ``left`` if *lenient*)
-3) Optionally load and aggregate home/away **player** tables, then merge
-4) Reorder columns (``ID`` first), sort by ``ID`` for reproducibility
+"""
+Construit la table finale pour un split (train ou test).
+Étapes :
+1) Charge les équipes (home et away)
+2) Les fusionne
+3) Charge et agrège les joueurs
+4) Remet tout dans l'ordre
 """
 def build_split(*,
     home_team_path: Path,
@@ -193,21 +155,20 @@ def build_split(*,
     away_player_path: Optional[Path],
     lenient: bool = False,
 ) -> pd.DataFrame:
-    #Teams 
+    #Equipes
     home_team = read_csv(home_team_path)
     away_team = read_csv(away_team_path)
 
-    #Prefixes
+    #Prefixes pour pas confondre domicile et extérieur
     home_team = enforce_prefix(home_team, 'home_team')
     away_team = enforce_prefix(away_team, 'away_team')
 
-    #Merge team tables on ID
+    #Fusion des équipes
     how = 'left' if lenient else 'inner'
     teams = safe_merge(home_team, away_team, how=how)
 
-    #Players 
+    #Joueurs
     if home_player_path and home_player_path.exists():
-        # Version streaming
         home_player = aggregate_players_from_csv(home_player_path, 'home_player_')
         teams = safe_merge(teams, home_player, how=how)
     else: 
@@ -220,7 +181,6 @@ def build_split(*,
     else: 
         info("no away player file provided, skipping.")
 
-    #Final tidy ups 
     #Reorder: ID first
     cols = ['ID'] + [c for c in teams.columns if c != 'ID']
     teams = teams[cols]
@@ -236,9 +196,9 @@ def build_split(*,
 
 # Partie CLI pour lancer le script avec des arguments différents 
 
-#fct that define all the params
-def parse_args() -> argparse.Namespace: 
-    p = argparse.ArgumentParser(description="Merge raw football CSVs into modeling table")
+def parse_args() -> argparse.Namespace:
+    # Fonction qui définit tous les paramètres qu'on peut passer en ligne de commande
+    p = argparse.ArgumentParser(description="Fusionner les CSV de foot bruts pour en faire une belle table")
 
     p.add_argument('--train-home-team', type=Path, default=None)
     p.add_argument('--train-away-team', type=Path, default=None)
@@ -250,25 +210,25 @@ def parse_args() -> argparse.Namespace:
     p.add_argument('--test-home-player', type=Path, default=None)
     p.add_argument('--test-away-player', type=Path, default=None)
 
-    p.add_argument('--train-dir', type=Path, default=None, help='Folder containing train CSVs')
-    p.add_argument('--test-dir',  type=Path, default=None, help='Folder containing test CSVs')
+    p.add_argument('--train-dir', type=Path, default=None, help='Dossier contenant les CSV de train')
+    p.add_argument('--test-dir',  type=Path, default=None, help='Dossier contenant les CSV de test')
 
-    #Targets
-    p.add_argument('--y-train', type=Path, default=None, help='Optional Y_train CSV (with ID + y_home_win,y_draw,y_away_win)')
-    p.add_argument('--y-train-supp', type=Path, default=None, help='Optional Y_train_supp CSV (with ID + GOAL_DIFF_HOME_AWAY)')
+    # Targets
+    p.add_argument('--y-train', type=Path, default=None, help='Fichier Y_train optionnel (ID + HOME_WINS/DRAW/AWAY_WINS)')
+    p.add_argument('--y-train-supp', type=Path, default=None, help='Fichier Y_train_supp optionnel (ID + GOAL_DIFF_HOME_AWAY)')
 
-    #Behavior
-    p.add_argument('--lenient', action='store_true', help='Use LEFT joins instead of INNER (keep more rows)')
+    # Comportement
+    p.add_argument('--lenient', action='store_true', help="Utiliser LEFT join au lieu de INNER (garde plus de lignes même si incomplet)")
 
-    #ouput
+    # Sortie
     p.add_argument('--out-dir', type=Path, default=Path('../data/processed'))
 
     return p.parse_args()
 
-"""Auto-discover standard file names inside *train_dir*/*test_dir*.
-We look for CSVs containing tokens like "home_team", "away_player", etc.
-Returns a dictionary whose keys match the argument names used later
-(e.g. "train_home_team"). Missing entries are set to ``None``.
+"""
+Découverte automatique des fichiers standards dans train_dir/test_dir.
+On cherche des CSV qui contiennent des mots-clés comme "home_team", "away_player", etc.
+On renvoie un dico des chemins trouvés (ou None si introuvable).
 """
 def discover_inputs(train_dir: Optional[Path], test_dir: Optional[Path]) -> Dict[str, Optional[Path]]:
 
@@ -292,48 +252,47 @@ def discover_inputs(train_dir: Optional[Path], test_dir: Optional[Path]) -> Dict
     inputs.update(discover_pair(test_dir,  'test'))
     return inputs
 
-"""Load the one-hot targets file if provided and validate required columns.
-
-Required columns: ``ID``, ``y_home_win``, ``y_draw``, ``y_away_win``.
-Returns the reduced frame with exactly these columns.
+"""
+Charge le fichier des cibles (Y_train) s'il existe, et vérifie les colonnes attendues.
+Colonnes requises : ID + HOME_WINS + DRAW + AWAY_WINS.
+Renvoie uniquement les colonnes utiles (dans le bon ordre).
 """
 def load_y_train(y_path: Optional[Path]) -> Optional[pd.DataFrame]:
     if not y_path:
-        info("No Y_train provided – skipping targets merge.")
+        info("Pas de Y_train fourni -> on saute l'étape des cibles.")
         return None
     y = read_csv(y_path)
     need = {'ID', 'HOME_WINS', 'DRAW', 'AWAY_WINS'}
     missing = need - set(y.columns)
     if missing:
-        raise ValueError(f"Y_train missing columns: {missing}")
+        raise ValueError(f"Il manque des colonnes dans Y_train : {missing}")
     return y[['ID', 'HOME_WINS', 'DRAW', 'AWAY_WINS']]
 
 def load_y_train_supp(y_supp_path: Optional[Path]) -> Optional[pd.DataFrame]:
     if not y_supp_path:
-        info("No Y_train_supp provided – skipping supplementary target merge.")
+        info("Pas de Y_train_supp fourni -> on saute l'étape des stats supplémentaires.")
         return None
     y = read_csv(y_supp_path)
     need = {'ID', 'GOAL_DIFF_HOME_AWAY'}
     missing = need - set(y.columns)
     if missing:
-        raise ValueError(f"Y_train_supp missing columns: {missing}")
+        raise ValueError(f"Il manque des colonnes dans Y_train_supp : {missing}")
     return y[['ID', 'GOAL_DIFF_HOME_AWAY']]
 
 
-#Write merged CSVs and a tiny schema.json for traceability.
-def save_artifacts(train_df: pd.DataFrame, test_df: pd.DataFrame, out_dir: Path) -> None: 
+# Écrit les CSV finaux + un petit schema.json pour garder une trace de ce qu'on a généré.
+def save_artifacts(train_df: pd.DataFrame, test_df: pd.DataFrame, out_dir: Path) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     train_path = out_dir / 'train_merged.csv'
     test_path = out_dir / 'test_merged.csv'
 
-    info("Saving CSVs ...")
+    info("Sauvegarde des CSVs ...")
     train_df.to_csv(train_path, index=False)
     test_df.to_csv(test_path, index=False)
-    ok(f"Wrote {train_path} ({train_df.shape[0]}×{train_df.shape[1]})")
-    ok(f"Wrote {test_path} ({test_df.shape[0]}×{test_df.shape[1]})")
+    ok(f"Fichier écrit : {train_path} ({train_df.shape[0]}×{train_df.shape[1]})")
+    ok(f"Fichier écrit : {test_path} ({test_df.shape[0]}×{test_df.shape[1]})")
 
-    #Schéma
     schema = {
         'train': {
             'rows': int(train_df.shape[0]),
@@ -348,11 +307,11 @@ def save_artifacts(train_df: pd.DataFrame, test_df: pd.DataFrame, out_dir: Path)
     }
     with open(out_dir / 'schema.json', 'w') as f:
         json.dump(schema, f, indent=2)
-    ok("Saved schema.json")
+    ok("schema.json sauvegardé")
 
 
 def main() -> None:
-    info("Discovery inputs ...")
+    info("Recherche des fichiers d'entrée ...")
     discovered = discover_inputs(TRAIN_DIR, TEST_DIR)
 
     for k, v in discovered.items():
@@ -368,14 +327,13 @@ def main() -> None:
     test_home_player  = discovered['test_home_player']
     test_away_player  = discovered['test_away_player']
 
-    # require at least the team files for both splits
+    # On a besoin au moins des fichiers équipes pour faire quelque chose
     need_train = [train_home_team, train_away_team]
     need_test  = [test_home_team,  test_away_team]
     if any(p is None for p in need_train + need_test):
-        raise SystemExit("Missing required team CSVs under Data/Train_Data or Data/Test_Data.")
+        raise SystemExit("Il manque les CSV des équipes (home/away) dans Data/Train_Data ou Data/Test_Data.")
 
-
-    info("Building TRAIN split ...")
+    info("Construction du split TRAIN ...")
     train = build_split(
         home_team_path=train_home_team,
         away_team_path=train_away_team,
@@ -384,21 +342,21 @@ def main() -> None:
         lenient=False,
     )
 
-    # write early so you always get the X train file even if test fails later
+    # Sauvegarde précoce : si le test plante derrière, au moins le train est déjà écrit
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     train.to_csv(OUT_DIR / 'train_merged.csv', index=False)
-    ok("Wrote train_merged.csv (early)")
+    ok("train_merged.csv écrit (sauvegarde précoce)")
 
-
+    # Alignement des cibles sur les IDs du train final (pour éviter tout décalage)
     if Y_TRAIN_PATH.exists():
         y = load_y_train(Y_TRAIN_PATH)
         if y is not None:
             train_ids = train[['ID']].sort_values('ID').reset_index(drop=True)
             y_aligned = train_ids.merge(y, on='ID', how='left')
             n_missing = int(y_aligned[['HOME_WINS','DRAW','AWAY_WINS']].isna().any(axis=1).sum())
-            info(f"Targets aligned to train IDs. Missing labels: {n_missing}")
+            info(f"Cibles alignées sur les IDs de train. Manquants : {n_missing}")
             y_aligned.to_csv(OUT_DIR / 'y_train_aligned.csv', index=False)
-            ok("Saved y_train_aligned.csv")
+            ok("y_train_aligned.csv sauvegardé")
 
     if Y_SUPP_PATH.exists():
         y_supp = load_y_train_supp(Y_SUPP_PATH)
@@ -406,12 +364,11 @@ def main() -> None:
             train_ids = train[['ID']].sort_values('ID').reset_index(drop=True)
             y_supp_aligned = train_ids.merge(y_supp, on='ID', how='left')
             n_missing_supp = int(y_supp_aligned[['GOAL_DIFF_HOME_AWAY']].isna().any(axis=1).sum())
-            info(f"Y_train_supp aligned to train IDs. Missing labels: {n_missing_supp}")
+            info(f"Y_train_supp aligné. Manquants : {n_missing_supp}")
             y_supp_aligned.to_csv(OUT_DIR / 'y_train_supp_aligned.csv', index=False)
-            ok("Saved y_train_supp_aligned.csv")
+            ok("y_train_supp_aligned.csv sauvegardé")
 
-
-    info("Building TEST split …")
+    info("Construction du split TEST …")
     test = build_split(
         home_team_path=test_home_team,
         away_team_path=test_away_team,
@@ -422,7 +379,7 @@ def main() -> None:
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     test.to_csv(OUT_DIR / 'test_merged.csv', index=False)
-    ok("Wrote test_merged.csv (early)")
+    ok("test_merged.csv écrit (sauvegarde précoce)")
 
     save_artifacts(train, test, OUT_DIR)
     ok("Tout est parfaittttttt")

@@ -80,12 +80,7 @@ def prepare_features_labels(
     X_num = merged[num_cols].copy()
 
     # Imputation simple (remplacement des NaN par 0.0)
-    imputer = SimpleImputer(strategy="constant", fill_value=0.0)
-    X_imp = pd.DataFrame(
-        imputer.fit_transform(X_num),
-        columns=num_cols,
-        index=X_num.index,
-    )
+    X_imp = X_num.fillna(0.0)
 
     return X_imp, y_cls, merged["ID"]
 

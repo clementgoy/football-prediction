@@ -77,21 +77,21 @@ def load_template_header(template_path: Path) -> Optional[List[str]]:
         df = pd.read_csv(template_path, nrows=0)
         return df.columns.tolist()
     except Exception as e:
-        info(f"Template non lisible ({e}) → ordre par défaut.")
+        info(f"Je n'arrive pas à lire le template ({e}) -> on utilise l'ordre par défaut.")
         return None
 
 def main() -> None:
     # charger test
     if not TEST_X_PATH.exists():
-        raise FileNotFoundError(f"Fichier test introuvable: {TEST_X_PATH}")
+        raise FileNotFoundError(f"Fichier test introuvable : {TEST_X_PATH}")
     test = pd.read_csv(TEST_X_PATH, low_memory=False)
-    ok(f"test_merged.csv: {test.shape}")
+    ok(f"test_merged.csv chargé : {test.shape}")
 
     # charger modèle
     if not MODEL_PATH.exists():
-        raise FileNotFoundError(f"Modèle introuvable: {MODEL_PATH}")
+        raise FileNotFoundError(f"Modèle introuvable : {MODEL_PATH}")
     model = joblib.load(MODEL_PATH)
-    ok(f"Modèle chargé: {MODEL_PATH.name}")
+    ok(f"Modèle chargé : {MODEL_PATH.name}")
 
     # features attendues
     expected_features = load_expected_feature_list()
@@ -101,10 +101,10 @@ def main() -> None:
 
     # prédire
     if not hasattr(model, "predict_proba"):
-        raise ValueError("Le modèle ne supporte pas predict_proba().")
+        raise ValueError("Le modèle ne supporte pas predict_proba(), c'est embêtant.")
     proba = model.predict_proba(X_test)  # (n, 3)
     if proba.shape[1] != 3:
-        raise ValueError(f"Le modèle ne renvoie pas 3 classes (shape={proba.shape}).")
+        raise ValueError(f"Le modèle ne renvoie pas 3 classes (il en renvoie {proba.shape[1]}).")
 
     # construire DataFrame de sortie
     if HARD_LABELS:
@@ -139,7 +139,7 @@ def main() -> None:
     sub = sub.astype({"HOME_WINS": "int8", "DRAW": "int8", "AWAY_WINS": "int8"})
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     sub.to_csv(OUT_PATH, index=False)
-    ok(f"Submission écrite: {OUT_PATH}")
+    ok(f"Soumission écrite dans : {OUT_PATH}")
 
 if __name__ == "__main__":
     main()

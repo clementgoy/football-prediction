@@ -43,26 +43,25 @@ def load_train_processed(train_csv, y_csv):
     return X_aligned, y, feat_cols, class_names
 
 def add_pca_features(X_train, X_valid, X_holdout, n_components=10):
-    print(f"Adding {n_components} PCA components...")
+    print(f"Ajout de {n_components} composantes PCA (c'est parti !)...")
     
-    # Standardize first (important for PCA)
+    # D'abord on standardise
     scaler = StandardScaler()
     X_tr_scaled = scaler.fit_transform(X_train)
     X_va_scaled = scaler.transform(X_valid)
     X_ho_scaled = scaler.transform(X_holdout)
     
-    # Fit PCA on train
+    # On l'entraîne
     pca = PCA(n_components=n_components, random_state=42)
     pca.fit(X_tr_scaled)
     
-    print(f"Explained variance ({n_components} components): {np.sum(pca.explained_variance_ratio_):.4f}")
+    print(f"Variance expliquée avec {n_components} composantes : {np.sum(pca.explained_variance_ratio_):.4f}")
     
-    # Transform all
     X_tr_pca = pca.transform(X_tr_scaled)
     X_va_pca = pca.transform(X_va_scaled)
     X_ho_pca = pca.transform(X_ho_scaled)
     
-    # Create DataFrames for PCA features
+    # On crée des DataFrames propres pour les nouvelles colonnes
     pca_cols = [f"PCA_{i+1}" for i in range(n_components)]
     
     def append_pca(X_orig, X_pca_vals):
@@ -99,14 +98,16 @@ def main():
         X_tr, y_tr, test_size=args.test_size_hold, random_state=args.seed, stratify=y_tr
     )
 
-    # Add PCA features
+    # Ajout des features PCA
+    # On modifie directement X_tr, X_va, X_ho en leur collant les colonnes PCA
     X_tr, X_va, X_ho, pca_cols = add_pca_features(X_tr, X_va, X_ho, n_components=args.n_components)
-    feat_cols = X_tr.columns.tolist() # Update feature list
+    feat_cols = X_tr.columns.tolist() # On met à jour la liste des colonnes
 
     classes = np.unique(y)
     cw = compute_class_weight(class_weight="balanced", classes=classes, y=y)
     class_weight = {int(c): float(w) for c, w in zip(classes, cw)}
 
+    # Configuration du modèle LightGBM
     clf = LGBMClassifier(
         objective="multiclass",
         num_class=3,
@@ -132,6 +133,7 @@ def main():
         lgb.log_evaluation(period=0)
     ]
 
+    # Entrainement
     clf.fit(
         X_tr, y_tr,
         eval_set=[(X_va, y_va)],
@@ -142,6 +144,7 @@ def main():
     p_va = clf.predict_proba(X_va)  
     p_ho = clf.predict_proba(X_ho) 
 
+    # On essaie de booster la proba du match nul pour voir si ça améliore le score
     def tune_draw_bias(p, y_true, alphas=(0.9, 1.0, 1.05, 1.1, 1.15, 1.2, 1.3)):
         best_a, best_acc = 1.0, -1.0
         for a in alphas:
@@ -154,8 +157,9 @@ def main():
         return best_a, best_acc
 
     alpha, acc_val_adj = tune_draw_bias(p_va, y_va)
-    print(f"Facteur optimal pour DRAW (validation) : {alpha:.2f} → acc={acc_val_adj:.4f}")
+    print(f"Facteur pour les Draws (trouvé sur la validation) : {alpha:.2f} -> acc={acc_val_adj:.4f}")
 
+    # On applique le facteur sur le hold-out
     p_ho_adj = p_ho.copy()
     p_ho_adj[:, 1] *= alpha
     p_ho_adj = p_ho_adj / p_ho_adj.sum(axis=1, keepdims=True)
@@ -163,7 +167,7 @@ def main():
 
     yhat_tr = clf.predict(X_tr)
     yhat_va = clf.predict(X_va)
-    # yhat_ho is already adjusted
+
 
     train_acc = accuracy_score(y_tr, yhat_tr)
     val_acc   = accuracy_score(y_va, yhat_va)

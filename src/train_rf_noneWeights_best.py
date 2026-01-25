@@ -36,15 +36,15 @@ def ok(msg: str) -> None:
 def load_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Charge X et y_onehot aligné sur les IDs de train."""
     if not X_PATH.exists():
-        raise FileNotFoundError(f"Introuvable: {X_PATH}")
+        raise FileNotFoundError(f"Je trouve pas : {X_PATH}")
     if not Y_ONEHOT_PATH.exists():
-        raise FileNotFoundError(f"Introuvable: {Y_ONEHOT_PATH}")
+        raise FileNotFoundError(f"Je trouve pas : {Y_ONEHOT_PATH}")
 
-    info("Chargement X …")
+    info("On charge X ...")
     X = pd.read_csv(X_PATH, low_memory=False)
     ok(f"X: {X.shape[0]} lignes × {X.shape[1]} colonnes")
 
-    info("Chargement y one-hot …")
+    info("On charge y (one-hot) ...")
     y1 = pd.read_csv(Y_ONEHOT_PATH, low_memory=False)
     ok(f"y_onehot: {y1.shape[0]} lignes × {y1.shape[1]} colonnes")
 
@@ -58,15 +58,15 @@ def prepare_features_labels(
     """Aligne X et y, encode la target en classes {0,1,2} et garde seulement les features numériques."""
     need = ["ID", "HOME_WINS", "DRAW", "AWAY_WINS"]
     if not set(need).issubset(y_onehot.columns):
-        raise ValueError("y_onehot doit contenir ID, HOME_WINS, DRAW, AWAY_WINS")
+        raise ValueError("Il manque des colonnes importantes dans y_onehot (ID, HOME_WINS...)")
 
     merged = X.merge(y_onehot[need], on="ID", how="inner")
-    ok(f"Alignement X↔y: {merged.shape[0]} lignes")
+    ok(f"Fusion X et y OK : {merged.shape[0]} lignes")
 
-    # target : argmax sur les 3 colonnes one-hot → 0,1,2
+    # target : on transforme le one-hot en 0, 1, 2
     y_cls = merged[["HOME_WINS", "DRAW", "AWAY_WINS"]].values.argmax(axis=1)
 
-    # features : colonnes numériques uniquement
+    # features : on garde que les chiffres
     feature_cols_all = [
         c for c in merged.columns
         if c not in ("ID", "HOME_WINS", "DRAW", "AWAY_WINS")
@@ -74,7 +74,7 @@ def prepare_features_labels(
     num_cols = merged[feature_cols_all].select_dtypes(include=[np.number]).columns
     dropped = len(feature_cols_all) - len(num_cols)
     if dropped > 0:
-        info(f"Colonnes non numériques écartées: {dropped}")
+        info(f"On vire {dropped} colonnes qui ne sont pas des nombres.")
 
     X_num = merged[num_cols].copy()
 
@@ -99,7 +99,7 @@ def make_random_forest(random_state: int = 42) -> RandomForestClassifier:
         max_features="sqrt",
         n_jobs=-1,
         random_state=random_state,
-        class_weight="balanced_subsample",  # pour aider sur la classe DRAW
+        class_weight="balanced_subsample",  # aide pour la classe DRAW
     )
     return rf
 
@@ -112,27 +112,27 @@ def train_random_forest(
 ) -> Dict[str, Any]:
     """Split train/val, entraine un RandomForest (sans sample_weight) et sauvegarde le modèle + métriques."""
 
-    # Split simple, stratifié
+    # On coupe en train et validation (80% / 20%)
     sss = StratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=random_state)
     (tr_idx, va_idx), = sss.split(X, y)
 
     X_tr, X_va = X.iloc[tr_idx], X.iloc[va_idx]
     y_tr, y_va = y[tr_idx], y[va_idx]
 
-    ok(f"Split train/val: {X_tr.shape[0]} train, {X_va.shape[0]} val")
+    ok(f"Découpage fait : {X_tr.shape[0]} pour apprendre, {X_va.shape[0]} pour tester")
 
     # Modèle
     clf = make_random_forest(random_state=random_state)
 
-    info("Entraînement RandomForest (sans poids) …")
+    info("C'est parti pour l'entraînement (sans poids) ...")
     clf.fit(X_tr, y_tr)
 
-    # Accuracy validation
+    # On regarde si ça marche bien sur la validation
     y_va_pred = clf.predict(X_va)
     val_acc = accuracy_score(y_va, y_va_pred)
-    ok(f"RandomForest: val_accuracy = {val_acc:.4f}")
+    ok(f"Score sur la validation = {val_acc:.4f}")
 
-    # Accuracy train (pour vérifier l'overfit)
+    # Accuracy train
     y_tr_pred = clf.predict(X_tr)
     train_acc = accuracy_score(y_tr, y_tr_pred)
     ok(f"RandomForest: train_accuracy = {train_acc:.4f}")
@@ -147,7 +147,7 @@ def train_random_forest(
     cm = confusion_matrix(y_va, y_va_pred)
     cm_list = cm.tolist()
 
-    # Top features (si dispo)
+    # Top features
     if hasattr(clf, "feature_importances_"):
         importances = np.asarray(clf.feature_importances_)
         feature_names = np.array(X.columns)
@@ -197,7 +197,7 @@ def train_random_forest(
         X_ho_sel=X_va,          # on réutilise la val comme "hold"
     )
 
-    # Fichier best.json (unique modèle)
+    # Fichier best.json
     best_for_json = {
         "key": "rf",
         "acc": float(val_acc),

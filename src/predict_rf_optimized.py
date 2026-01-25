@@ -42,38 +42,40 @@ def load_expected_feature_list() -> List[str]:
 
 def load_test_data() -> Tuple[np.ndarray, pd.DataFrame]:
     if not TEST_X_PATH.exists():
-        raise FileNotFoundError(f"Fichier test introuvable: {TEST_X_PATH}")
+        raise FileNotFoundError(f"Je trouve pas le fichier test : {TEST_X_PATH}")
 
-    info("Chargement des données de test...")
+    info("Chargement des données de test (pour voir ce qu'on vaut)...")
     df = pd.read_csv(TEST_X_PATH, low_memory=False)
     if "ID" not in df.columns:
-        raise ValueError("La table de test doit contenir la colonne ID.")
+        raise ValueError("Y'a pas de colonne ID dans le test, c'est grave !")
 
     ids = df["ID"].values
 
     feats = df.drop(columns=["ID"], errors="ignore")
+    # On garde que les chifres
     X_num = feats.select_dtypes(include=[np.number]).copy()
 
-    info(f"Test: {len(X_num)} lignes, {X_num.shape[1]} features numériques.")
+    info(f"Test chargé : {len(X_num)} lignes à prédire.")
     return ids, X_num
 
 
 def main() -> None:
-    info("Prédiction avec la RandomForest optimisée")
+    info("Lancement des prédictions (RandomForest optimisée)...")
 
     feature_list = load_expected_feature_list()
-    info(f"{len(feature_list)} features attendues (sélectionnées à l'entraînement).")
+    info(f"Le modèle attend {len(feature_list)} features précises.")
 
     ids, X_test_raw = load_test_data()
 
+    # On remplit les trous (si y'a des features manquantes dans le test, on met 0)
     X_test = X_test_raw.reindex(columns=feature_list, fill_value=0.0)
 
     if not MODEL_PATH.exists():
-        raise FileNotFoundError(f"Modèle introuvable: {MODEL_PATH}")
-    info(f"Chargement du modèle depuis {MODEL_PATH}...")
+        raise FileNotFoundError(f"Le modèle est pas là : {MODEL_PATH}")
+    info(f"Chargement du modèle {MODEL_PATH}...")
     model = joblib.load(MODEL_PATH)
 
-    info("Prédiction des probabilités...")
+    info("Calcul des probabilités...")
     proba = model.predict_proba(X_test)  
 
     classes = np.argmax(proba, axis=1)  
@@ -91,9 +93,9 @@ def main() -> None:
     )
 
     sub.to_csv(SUBMISSION_PATH, index=False)
-    ok(f"Fichier de soumission sauvegardé dans {SUBMISSION_PATH}")
+    ok(f"C'est bon ! Fichier prêt à être envoyé : {SUBMISSION_PATH}")
 
-    info("Prédiction terminée ")
+    info("Terminé.")
 
 
 if __name__ == "__main__":

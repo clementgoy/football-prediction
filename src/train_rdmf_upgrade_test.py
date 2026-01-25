@@ -32,24 +32,24 @@ def ok(msg: str) -> None:
 
 def load_data() -> Tuple[pd.DataFrame, pd.DataFrame, Optional[pd.DataFrame]]:
     if not X_PATH.exists():
-        raise FileNotFoundError(f"Introuvable: {X_PATH}")
+        raise FileNotFoundError(f"Je trouve pas X : {X_PATH}")
     if not Y_ONEHOT_PATH.exists():
-        raise FileNotFoundError(f"Introuvable: {Y_ONEHOT_PATH}")
+        raise FileNotFoundError(f"Je trouve pas Y : {Y_ONEHOT_PATH}")
 
-    info("Chargement X …")
+    info("On charge les données X ...")
     X = pd.read_csv(X_PATH, low_memory=False)
-    ok(f"X: {X.shape[0]} lignes × {X.shape[1]} colonnes")
+    ok(f"X : {X.shape[0]} lignes × {X.shape[1]} colonnes")
 
-    info("Chargement y one-hot …")
+    info("On charge les données Y (one-hot) ...")
     y1 = pd.read_csv(Y_ONEHOT_PATH, low_memory=False)
-    ok(f"y_onehot: {y1.shape[0]} lignes × {y1.shape[1]} colonnes")
+    ok(f"y_onehot : {y1.shape[0]} lignes × {y1.shape[1]} colonnes")
 
     y_supp = None
     if Y_SUPP_PATH.exists():
         y_supp = pd.read_csv(Y_SUPP_PATH, low_memory=False)
-        ok(f"y_supp: {y_supp.shape[0]} lignes × {y_supp.shape[1]} colonnes")
+        ok(f"y_supp trouvé (cool, on a la différence de buts) : {y_supp.shape[0]} lignes")
     else:
-        info("Pas de y_supp (OK) — pondérations par écart de buts désactivées.")
+        info("Pas de y_supp, tant pis, on fera sans pondération par buts.")
 
     return X, y1, y_supp
 
@@ -59,10 +59,10 @@ def prepare_features_labels(
 ) -> Tuple[pd.DataFrame, np.ndarray, pd.Index]:
     need = ["ID", "HOME_WINS", "DRAW", "AWAY_WINS"]
     if not set(need).issubset(y_onehot.columns):
-        raise ValueError("y_onehot doit contenir ID, HOME_WINS, DRAW, AWAY_WINS")
+        raise ValueError("Il manque des colonnes dans y_onehot (ID, HOME_WINS...)")
 
     merged = X.merge(y_onehot[need], on="ID", how="inner")
-    ok(f"Alignement X↔y: {merged.shape[0]} lignes")
+    ok(f"Fusion OK : {merged.shape[0]} lignes")
 
     # classes (0,1,2)
     y_cls = merged[["HOME_WINS", "DRAW", "AWAY_WINS"]].values.argmax(axis=1)
@@ -72,10 +72,11 @@ def prepare_features_labels(
     num_cols = merged[feature_cols_all].select_dtypes(include=[np.number]).columns
     dropped = len(feature_cols_all) - len(num_cols)
     if dropped > 0:
-        info(f"Colonnes non numériques écartées: {dropped}")
+        info(f"On a viré {dropped} colonnes qui n'étaient pas des chiffres.")
 
     X_num = merged[num_cols].copy()
 
+    # On remplace les trous par des 0 
     imputer = SimpleImputer(strategy="constant", fill_value=0.0)
     X_imp = pd.DataFrame(imputer.fit_transform(X_num), columns=num_cols, index=X_num.index)
 
@@ -95,7 +96,7 @@ def build_sample_weights(
         return w
 
     if "GOAL_DIFF_HOME_AWAY" not in y_supp.columns:
-        info("y_supp sans GOAL_DIFF_HOME_AWAY → pondérations ignorées.")
+        info("Pas de GOAL_DIFF dans y_supp, donc pas de poids.")
         return w
 
     tmp = pd.DataFrame({"ID": ids}).merge(
@@ -108,14 +109,16 @@ def build_sample_weights(
         w = 1.0 + 0.25 * diff
     elif scheme == "exp015":
         w = np.exp(0.15 * diff, dtype=np.float64)
+    
+    # On limite les poids
     w = np.clip(w, 0.5, 20.0).astype(np.float32)
     return w
 
 def make_candidates(random_state: int = 42) -> Dict[str, Any]:
-    # On compare trois modèles :
-    # rf = RandomForest 
-    # et = ExtraTrees qui est plus randomisé et sensé mieux généraliser
-    # hgb = HistGradientBoosting (scikit-learn) avec stoppage pour limiter le overfitting 
+    # On teste 3 modèles différents pour voir le meilleur :
+    # rf = RandomForest (classique, valeur sûre)
+    # et = ExtraTrees (plus rapide, plus aléatoire, parfois meilleur)
+    # hgb = HistGradientBoosting
 
     rf = RandomForestClassifier(
         n_estimators=700,
@@ -125,7 +128,7 @@ def make_candidates(random_state: int = 42) -> Dict[str, Any]:
         max_features="sqrt",
         n_jobs=-1,
         random_state=random_state,
-        class_weight="balanced_subsample",  # équilibre classes pour draw qui est rarement predit si,non
+        class_weight="balanced_subsample",  # Pour aider à trouver les matchs nuls
     )
 
     et = ExtraTreesClassifier(
@@ -142,7 +145,7 @@ def make_candidates(random_state: int = 42) -> Dict[str, Any]:
     hgb = HistGradientBoostingClassifier(
         loss="log_loss",
         learning_rate=0.06,
-        max_depth=None,            # la profondeur gérée par max_leaf_nodes
+        max_depth=None,            
         max_leaf_nodes=63, 
         min_samples_leaf=50,  
         l2_regularization=0.0,
@@ -162,7 +165,7 @@ def train_and_select(
     weight_scheme: str = "linear025",
     random_state: int = 42,
 ) -> Dict[str, Any]:
-    # split simple 
+    # On coupe en train/val
     sss = StratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=random_state)
     (tr_idx, va_idx), = sss.split(X, y)
 
@@ -176,12 +179,12 @@ def train_and_select(
     results = []
 
     for key, clf in models.items():
-        info(f"Entraînement modèle '{key}' (poids: {weight_scheme}) …")
+        info(f"Test du modèle '{key}' (avec pondération : {weight_scheme}) ...")
         clf.fit(X_tr, y_tr, sample_weight=w_tr)
 
         pred_va = clf.predict(X_va)
         acc = accuracy_score(y_va, pred_va)
-        ok(f"{key}: val_accuracy = {acc:.4f}")
+        ok(f"Résultat pour {key}: accuracy = {acc:.4f}")
 
         rep = classification_report(
             y_va, pred_va,
@@ -190,7 +193,7 @@ def train_and_select(
         )
         cm = confusion_matrix(y_va, pred_va).tolist()
 
-        # Sauvegardes
+        # On sauvegarde tout
         tag = f"{key}_{weight_scheme}"
         model_path = MODELS / f"{tag}.joblib"
         joblib.dump(clf, model_path)
@@ -217,16 +220,15 @@ def train_and_select(
             "clf": clf,
         })
 
-    # Sélection du meilleur modèle sur la validation
+    # On prend le meilleur des 3
     best = max(results, key=lambda r: r["acc"])
     best_clf = best["clf"]
-    ok(f"Meilleur: {best['key']} (acc={best['acc']:.4f}) → {best['model_path']}")
+    ok(f"Le vainqueur est : {best['key']} (score={best['acc']:.4f}) -> {best['model_path']}")
 
-    # accuracy sur le train
+    # Juste pour info, on regarde le score sur le train
     y_tr_pred = best_clf.predict(X_tr)
     train_acc = accuracy_score(y_tr, y_tr_pred)
 
-    # accuracy sur la validation
     y_va_pred = best_clf.predict(X_va)
     val_acc = accuracy_score(y_va, y_va_pred)
 
@@ -238,17 +240,16 @@ def train_and_select(
         digits=4
     )
 
-    # top features 
+    # Si le modèle nous donne l'importance des features, on regarde
     if hasattr(best_clf, "feature_importances_"):
         importances = np.asarray(best_clf.feature_importances_)
         feature_names = np.array(X.columns)
         order = np.argsort(importances)[::-1]
         top_features = feature_names[order].tolist()
     else:
-        # renvoie la liste des features
         top_features = list(X.columns)
 
-    # Appel à la fonction qui affiche les perfs
+    # Affichage du rapport complet
     print_report(
         train_acc=train_acc,
         val_acc=val_acc,
@@ -262,7 +263,7 @@ def train_and_select(
         X_ho_sel=X_va, 
     )
 
-    # On selectionne le meilleur modèle
+    # On prépare le JSON final
     best_for_json = dict(best)        
     best_for_json.pop("clf", None)    
     (MODELS / "best.json").write_text(
@@ -277,10 +278,10 @@ def main() -> None:
     X, y, ids = prepare_features_labels(X_raw, y_onehot)
 
     for scheme in ["none", "linear025", "exp015"]:
-        info(f"--- Schéma de poids: {scheme} ---")
+        info(f"--- On teste avec le schéma de poids : {scheme} ---")
         best = train_and_select(X, y, ids, y_supp, weight_scheme=scheme, random_state=42)
 
-    ok("Terminé. Regarde le dossier 'models/' (json + joblib).")
+    ok("Tout est fini. Va voir dans 'models/' !")
 
 if __name__ == "__main__":
     main()

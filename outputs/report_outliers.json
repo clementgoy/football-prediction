@@ -1,0 +1,160 @@
+{
+  "pca1_stats": {
+    "count": 12303.0,
+    "mean": 1.57089835102615e-16,
+    "std": 24.837123296842968,
+    "min": -65.46522834161074,
+    "25%": 2.263981638744699,
+    "50%": 8.47235630195157,
+    "75%": 13.023404082929082,
+    "max": 31.273464051964147
+  },
+  "count_outliers": 1564,
+  "count_normal": 10739,
+  "status": "Found outliers",
+  "suspicious_cols_top20": [
+    {
+      "col": "away_player_PLAYER_PENALTIES_SAVED_season_sum_sum",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 22.6115094515318
+    },
+    {
+      "col": "away_player_PLAYER_PENALTIES_SAVED_season_sum_mean",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 1.21580716125746
+    },
+    {
+      "col": "away_player_PLAYER_PENALTIES_SAVED_season_sum_std",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 5.197816450442558
+    },
+    {
+      "col": "away_player_PLAYER_PENALTIES_SAVED_season_average_sum",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 19.76813483564578
+    },
+    {
+      "col": "away_player_PLAYER_PENALTIES_SAVED_season_average_mean",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 1.0644247371679854
+    },
+    {
+      "col": "away_player_PLAYER_PENALTIES_SAVED_season_average_std",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 4.547144791452055
+    },
+    {
+      "col": "away_player_PLAYER_PENALTIES_SAVED_season_std_sum",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 25.64391470341745
+    },
+    {
+      "col": "away_player_PLAYER_PENALTIES_SAVED_season_std_mean",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 1.404560582587251
+    },
+    {
+      "col": "away_player_PLAYER_PENALTIES_SAVED_season_std_std",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 5.926847538394902
+    },
+    {
+      "col": "away_player_PLAYER_PENALTIES_SAVED_5_last_match_sum_sum",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 11.163143681907068
+    },
+    {
+      "col": "away_player_PLAYER_PENALTIES_SAVED_5_last_match_sum_mean",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 0.6469520253466733
+    },
+    {
+      "col": "away_player_PLAYER_PENALTIES_SAVED_5_last_match_sum_std",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 2.7861637343522223
+    },
+    {
+      "col": "away_player_PLAYER_PENALTIES_SAVED_5_last_match_average_sum",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 11.070304497625477
+    },
+    {
+      "col": "away_player_PLAYER_PENALTIES_SAVED_5_last_match_average_mean",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 0.6413687669810328
+    },
+    {
+      "col": "away_player_PLAYER_PENALTIES_SAVED_5_last_match_average_std",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 2.7623367022528997
+    },
+    {
+      "col": "away_player_PLAYER_PENALTIES_SAVED_5_last_match_std_sum",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 11.657975602942546
+    },
+    {
+      "col": "away_player_PLAYER_PENALTIES_SAVED_5_last_match_std_mean",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 0.6883005268585083
+    },
+    {
+      "col": "away_player_PLAYER_PENALTIES_SAVED_5_last_match_std_std",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 2.933529000734514
+    }
+  ],
+  "suspicious_count": 18,
+  "target_dist_outliers": {
+    "HOME_WINS": 0.4373401534526854,
+    "AWAY_WINS": 0.3024296675191816,
+    "DRAW": 0.260230179028133
+  },
+  "target_dist_normal": {
+    "HOME_WINS": 0.4350498184188472,
+    "AWAY_WINS": 0.3061737591954558,
+    "DRAW": 0.258776422385697
+  },
+  "id_min_out": 12,
+  "id_max_out": 12301,
+  "string_cols_stats": {
+    "home_teamLEAGUE": {
+      "League Two": 495,
+      "League One": 494,
+      "Pro League": 392
+    },
+    "home_teamTEAM_NAME": {
+      "Anderlecht": 30,
+      "Antwerp": 29,
+      "Genk": 27
+    },
+    "away_teamLEAGUE": {
+      "League Two": 495,
+      "League One": 494,
+      "Pro League": 392
+    },
+    "away_teamTEAM_NAME": {
+      "Genk": 29,
+      "Standard Liège": 29,
+      "Anderlecht": 28
+    }
+  }
+}

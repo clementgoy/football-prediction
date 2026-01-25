@@ -32,65 +32,63 @@ def ok(msg: str) -> None:
 def load_model_and_features():
     """Charge le modèle entraîné et la liste de features utilisées."""
     if not MODEL_PATH.exists():
-        raise FileNotFoundError(f"Modèle introuvable: {MODEL_PATH}")
+        raise FileNotFoundError(f"Je trouve pas le modèle : {MODEL_PATH}")
 
     if not FEATURES_PATH.exists():
-        raise FileNotFoundError(f"Fichier de features introuvable: {FEATURES_PATH}")
+        raise FileNotFoundError(f"Je trouve pas le fichier de features : {FEATURES_PATH}")
 
-    info(f"Chargement du modèle depuis {MODEL_PATH} …")
+    info(f"On charge le modèle depuis {MODEL_PATH} …")
     clf = joblib.load(MODEL_PATH)
 
-    info(f"Chargement des features depuis {FEATURES_PATH} …")
+    info(f"On charge la liste des features depuis {FEATURES_PATH} …")
     feat_data = json.loads(FEATURES_PATH.read_text(encoding="utf-8"))
     feature_names = feat_data["feature_names"]
 
-    ok(f"Modèle et features chargés ({len(feature_names)} colonnes).")
+    ok(f"C'est tout bon ! Modèle et features chargés ({len(feature_names)} colonnes).")
     return clf, feature_names
 
 
 def load_test_data() -> pd.DataFrame:
     """Charge le fichier test_merged.csv."""
     if not TEST_PATH.exists():
-        raise FileNotFoundError(f"Introuvable: {TEST_PATH}")
+        raise FileNotFoundError(f"Je trouve pas le test : {TEST_PATH}")
 
-    info("Chargement de test_merged.csv …")
+    info("On charge le fichier de test …")
     df_test = pd.read_csv(TEST_PATH, low_memory=False)
-    ok(f"Test: {df_test.shape[0]} lignes × {df_test.shape[1]} colonnes")
+    ok(f"Test chargé : {df_test.shape[0]} lignes × {df_test.shape[1]} colonnes")
 
     if "ID" not in df_test.columns:
-        raise ValueError("La colonne 'ID' doit exister dans test_merged.csv")
+        raise ValueError("Y'a pas de colonne ID, c'est pas normal !")
 
     return df_test
 
 
 def prepare_test_features(df_test: pd.DataFrame, feature_names):
-    
-    # Aligne les colonnes du test sur celles utilisées à l'entraînement, ajoute les colonnes manquantes (remplies à 0.0), ignore les colonnes en plus, remplace les NaN par 0.0.
-    
-    info("Préparation des features du test …")
+    # Aligne les colonnes du test sur celles utilisées à l'entraînement
+    info("On prépare les colonnes pour le test …")
 
     X_test = df_test.copy()
 
-    # Ajout des colonnes manquantes
+    # Ajout des colonnes manquantes (si y'en a une qui manque dans le test, on met 0)
     missing_cols = [c for c in feature_names if c not in X_test.columns]
     if missing_cols:
-        info(f"Ajout de {len(missing_cols)} colonnes manquantes (remplies à 0.0).")
+        info(f"Oups, il manque {len(missing_cols)} colonnes. On les rajoute avec des 0.")
         for c in missing_cols:
             X_test[c] = 0.0
 
     X_test = X_test[feature_names].copy()
 
+    # On remplace les trous par des 0 (comme à l'entraînement)
     X_test = X_test.fillna(0.0)
 
-    ok(f"Features test préparées: {X_test.shape[0]} lignes × {X_test.shape[1]} colonnes")
+    ok(f"Features prêtes ! On a bien {X_test.shape[0]} lignes × {X_test.shape[1]} colonnes.")
     return X_test
 
 
 def make_submission(df_test: pd.DataFrame, clf, X_test: pd.DataFrame):
-
-    # Fait les prédictions, convertit en one-hot et génère le DataFrame
-
-    info("Prédiction des classes …")
+    # Fait les prédictions
+    # Ici on utilise predict() directement qui renvoie la classe (0, 1 ou 2)
+    info("Calcul des prédictions …")
     y_pred = clf.predict(X_test)
 
     # Conversion en one-hot
@@ -98,10 +96,10 @@ def make_submission(df_test: pd.DataFrame, clf, X_test: pd.DataFrame):
     one_hot = np.zeros((n_samples, 3), dtype=int)
     for i, cls in enumerate(y_pred):
         if cls not in (0, 1, 2):
-            raise ValueError(f"Classe prédite inattendue: {cls}")
+            raise ValueError(f"Euh, le modèle a prédit {cls}, je connais pas cette classe.")
         one_hot[i, cls] = 1
 
-    # Construction du DataFrame 
+    # On construit le tableau final
     sub = pd.DataFrame({
         "ID": df_test["ID"].values,
         "HOME_WINS": one_hot[:, 0],
@@ -109,7 +107,7 @@ def make_submission(df_test: pd.DataFrame, clf, X_test: pd.DataFrame):
         "AWAY_WINS": one_hot[:, 2],
     })
 
-    ok("Soumission générée (one-hot 0/1).")
+    ok("Soumission générée (c'est des 0 et des 1).")
     return sub
 
 
