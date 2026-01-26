@@ -31,7 +31,7 @@ def main():
     results["pca1_stats"] = desc
     
     # Seuil
-    threshold = -30 # Un peu plus large pour être sûr d'attraper le mur
+    threshold = -50 # Un peu plus large pour être sûr d'attraper le mur
     outliers = df[df['PCA_1'] < threshold]
     normal = df[df['PCA_1'] >= threshold]
     

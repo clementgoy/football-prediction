@@ -116,7 +116,11 @@ Entraînements
 ```bash
 make train ##_<nom_de_la_methode>
 ```
+ou 
 
+```bash
+python chemin/vers/nom_de_la_methode.py
+```
 
 ## Tests et évaluation
 
@@ -135,8 +139,41 @@ Prédictions
 ```bash
 make predict ##_<nom_de_la_methode>
 ```
+ou 
+
+```bash
+python chemin/vers/nom_de_la_methode.py
+```
 
 Cette commande génère un fichier .csv conforme au format attendu par la plateforme du challenge
+
+
+## Precision supplementaire pour les PCA à 2 dimensions
+
+Pour visualiser la structure des données en 2D, exécuter pca_visualization.py. 
+```bash
+python src/pca_visualization.py
+```
+Le script charge data/processed/train_merged.csv, conserve les colonnes numériques, standardise les features, calcule une PCA à 2 composantes puis sauvegarde la figure dans outputs/pca_plot.png.
+
+Sur ce graphe, on peut observer un “mur” de points (PCA_1 environ à -65 et alignement vertical). Cela peut correspondre à un sous-ensemble d’exemples très similaires sur certaines features dominantes (peut-être des patterns de valeurs manquantes).
+
+Pour investiguer ce groupement, exécuter investigate_pca_wall.py. 
+```bash
+python src/investigate_pca_wall.py
+```
+Il produit un rapport dans outputs/report_outliers.json (statistiques de PCA_1, seuil d’outliers, comparaison outliers vs normal sur les features, distribution des classes, et colonnes suspectes).
+
+
+## Precision supplementaire pour les PCA à 10 dimensions pour enrichir les données
+
+Pour générer des features PCA_1 … PCA_10, exécuter add_pca_to_csv.py. 
+```bash
+python src/add_pca_to_csv.py
+```
+Cela crée data/processed/train_merged_pca.csv (et test_merged_pca.csv si le test existe) avec les 10 colones supplémentaires.
+
+Ensuite, on peut effectuer l’entraînement normalement, RandomForest (fichier train_rf_pca.py) va utiliser ces CSV enrichis.
 
 
 ## Auteurs

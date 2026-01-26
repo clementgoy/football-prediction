@@ -342,7 +342,7 @@ def main() -> None:
         lenient=False,
     )
 
-    # Sauvegarde précoce : si le test plante derrière, au moins le train est déjà écrit
+    # Sauvegarde précoce (au cas ou ca plante)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     train.to_csv(OUT_DIR / 'train_merged.csv', index=False)
     ok("train_merged.csv écrit (sauvegarde précoce)")

@@ -45,7 +45,7 @@ def main():
     X_scaled = scaler.fit_transform(X)
 
     # On applique l'ACP sur 2 dimensions pour pouvoir dessiner
-    print("Application de l'ACP (n_components=2)...")
+    print("Application du PCA sur 2 axes...")
     pca = PCA(n_components=2)
     X_pca = pca.fit_transform(X_scaled)
 
@@ -69,14 +69,14 @@ def main():
             s=10
         )
 
-    plt.title("Visualisation ACP des features Football (2 axes)")
+    plt.title("Visualisation PCA des features (2 axes)")
     plt.xlabel(f"Axe Principal 1 ({explained_var[0]:.2%})")
     plt.ylabel(f"Axe Principal 2 ({explained_var[1]:.2%})")
     plt.legend()
     plt.grid(True, alpha=0.3)
     
     plt.savefig(PLOT_PATH)
-    print("C'est bon, graphique enregistré !")
+    print("Graphique enregistré !")
 
 if __name__ == "__main__":
     main()
