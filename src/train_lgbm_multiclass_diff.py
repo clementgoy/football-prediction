@@ -15,7 +15,7 @@ import lightgbm as lgb
 from src.print_result import print_report
 from src.features_diff import add_interaction_features, build_features_with_diff
 
-
+ # Construit X et y pour la classification multiclass à partir des features diff
 def build_Xy_multiclass_with_diff(train_csv: str, y_csv: str):
     X_raw = pd.read_csv(train_csv)
     if "ID" not in X_raw.columns:
@@ -45,7 +45,7 @@ def build_Xy_multiclass_with_diff(train_csv: str, y_csv: str):
 
     return X, y, ids
 
-
+# Découpe les données en train / validation / holdout de façon stratifiée
 def split_train_valid_holdout(X, y, valid_size=0.1667, holdout_size=0.1667, random_state=42):
     X_train_valid, X_hold, y_train_valid, y_hold = train_test_split(
         X,
@@ -70,6 +70,7 @@ def split_train_valid_holdout(X, y, valid_size=0.1667, holdout_size=0.1667, rand
     )
     return X_tr, X_va, X_hold, y_tr, y_va, y_hold
 
+# Initialise un LightGBM multiclass configuré pour Home / Draw / Away
 def make_lgbm_multiclass(random_state=42):
     clf = lgb.LGBMClassifier(
         objective="multiclass",
@@ -90,6 +91,7 @@ def make_lgbm_multiclass(random_state=42):
     )
     return clf
 
+# Convertit un goal diff en classes Home / Draw / Away (sans seuil)
 def goal_diff_to_class(diff: np.ndarray) -> np.ndarray:
     diff = np.asarray(diff)
     cls = np.zeros_like(diff, dtype=int)
@@ -97,7 +99,7 @@ def goal_diff_to_class(diff: np.ndarray) -> np.ndarray:
     cls[diff == 0] = 1
     return cls
 
-
+# Convertit un goal diff en classes avec une zone de tolérance pour les nuls
 def goal_diff_to_class_with_band(diff: np.ndarray, band: float = 0.5) -> np.ndarray:
     diff = np.asarray(diff)
     cls = np.zeros_like(diff, dtype=int)
@@ -105,7 +107,7 @@ def goal_diff_to_class_with_band(diff: np.ndarray, band: float = 0.5) -> np.ndar
     cls[np.abs(diff) <= band] = 1  # DRAW
     return cls
 
-
+# Entraîne un modèle LightGBM multiclass avec features diff et interactions
 def train_lgbm_multiclass_diff(
     train_csv: str,
     y_csv: str,
@@ -182,6 +184,7 @@ def train_lgbm_multiclass_diff(
     )
     print(f"\n[ok] Modèle LightGBM multiclass + diff sauvegardé dans {out_path.resolve()}")
 
+# Gère les arguments CLI pour lancer l’entraînement du modèle
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(

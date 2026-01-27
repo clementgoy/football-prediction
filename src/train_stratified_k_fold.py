@@ -26,16 +26,16 @@ X_PATH = PROCESSED / "train_merged.csv"
 Y_ONEHOT_PATH = PROCESSED / "y_train_aligned.csv"
 
 
+# Petit print formaté pour les infos
 def info(msg: str) -> None:
     print(f"\n[info] {msg}")
 
-
+# Petit print formaté pour dire tout est okay
 def ok(msg: str) -> None:
     print(f"[ok] {msg}")
 
-
+# Charge les données X et y one-hot alignées sur les IDs du train
 def load_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
-    """Charge X et y_onehot aligné sur les IDs de train."""
     if not X_PATH.exists():
         raise FileNotFoundError(f"Introuvable: {X_PATH}")
     if not Y_ONEHOT_PATH.exists():
@@ -51,15 +51,11 @@ def load_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
 
     return X, y1
 
-
+# Aligne X et y, encode la target en classes et garde les features numériques
 def prepare_features_labels(
     X: pd.DataFrame,
     y_onehot: pd.DataFrame,
 ) -> Tuple[pd.DataFrame, np.ndarray, pd.Index]:
-    """
-    Aligne X et y, encode la target en classes {0,1,2}
-    et garde seulement les features numériques.
-    """
     need = ["ID", "HOME_WINS", "DRAW", "AWAY_WINS"]
     if not set(need).issubset(y_onehot.columns):
         raise ValueError("y_onehot doit contenir ID, HOME_WINS, DRAW, AWAY_WINS")
@@ -67,10 +63,8 @@ def prepare_features_labels(
     merged = X.merge(y_onehot[need], on="ID", how="inner")
     ok(f"Alignement X↔y: {merged.shape[0]} lignes")
 
-    # target : argmax sur les 3 colonnes one-hot → 0,1,2
     y_cls = merged[["HOME_WINS", "DRAW", "AWAY_WINS"]].values.argmax(axis=1)
 
-    # features : colonnes numériques uniquement
     feature_cols_all = [
         c for c in merged.columns
         if c not in ("ID", "HOME_WINS", "DRAW", "AWAY_WINS")
@@ -82,7 +76,6 @@ def prepare_features_labels(
 
     X_num = merged[num_cols].copy()
 
-    # Imputation simple (remplacement des NaN par 0.0)
     imputer = SimpleImputer(strategy="constant", fill_value=0.0)
     X_imp = pd.DataFrame(
         imputer.fit_transform(X_num),
@@ -92,9 +85,8 @@ def prepare_features_labels(
 
     return X_imp, y_cls, merged["ID"]
 
-
+# Construit le RandomForest avec les hyperparamètres choisis.
 def make_random_forest(random_state: int = 42) -> RandomForestClassifier:
-    """Construit le RandomForest avec les hyperparamètres choisis."""
     rf = RandomForestClassifier(
         n_estimators=700,
         max_depth=None,
@@ -107,7 +99,7 @@ def make_random_forest(random_state: int = 42) -> RandomForestClassifier:
     )
     return rf
 
-
+# Entraîne un RandomForest avec StratifiedKFold + hold-out et sauvegarde les résultats
 def train_rf_with_stratified_kfold(
     X: pd.DataFrame,
     y: np.ndarray,
@@ -116,15 +108,6 @@ def train_rf_with_stratified_kfold(
     random_state: int = 42,
     n_splits: int = 5,
 ) -> Dict[str, Any]:
-    """
-    1) Garde un hold-out stratifié (20 %) de côté.
-    2) Fait une cross-validation StratifiedKFold sur les 80 % restants.
-    3) Entraîne un modèle final sur les 80 %.
-    4) Évalue sur le hold-out.
-    5) Sauvegarde modèle + métriques.
-    """
-
-    # 1) Split global en train_cv / hold-out
     info("Split global train_cv / hold-out (StratifiedShuffleSplit, test_size=0.2) …")
     sss = StratifiedShuffleSplit(
         n_splits=1,
@@ -143,7 +126,6 @@ def train_rf_with_stratified_kfold(
         f"Hold-out: {X_ho.shape[0]} lignes"
     )
 
-    # 2) Cross-validation StratifiedKFold sur train_cv
     info(
         f"Cross-validation StratifiedKFold sur {n_splits} folds "
         "(sur le bloc train_cv uniquement) …"
@@ -171,11 +153,9 @@ def train_rf_with_stratified_kfold(
         clf = make_random_forest(random_state=random_state + fold_idx)
         clf.fit(X_tr, y_tr)
 
-        # train acc
         y_tr_pred = clf.predict(X_tr)
         acc_tr = accuracy_score(y_tr, y_tr_pred)
 
-        # val acc
         y_va_pred = clf.predict(X_va)
         acc_va = accuracy_score(y_va, y_va_pred)
 
@@ -198,7 +178,6 @@ def train_rf_with_stratified_kfold(
         f"  val_acc    mean={mean_val_acc:.4f} ± {std_val_acc:.4f}"
     )
 
-    # 3) Entraînement du modèle final sur le bloc train_cv complet
     info("Entraînement du modèle final sur tout le bloc train_cv …")
     final_clf = make_random_forest(random_state=random_state)
     final_clf.fit(X_cv, y_cv)
@@ -207,7 +186,6 @@ def train_rf_with_stratified_kfold(
     final_train_acc = accuracy_score(y_cv, y_cv_pred)
     ok(f"Final RF sur train_cv: train_accuracy = {final_train_acc:.4f}")
 
-    # 4) Évaluation sur le hold-out
     y_ho_pred = final_clf.predict(X_ho)
     hold_acc = accuracy_score(y_ho, y_ho_pred)
     ok(f"Final RF sur hold-out: hold_accuracy = {hold_acc:.4f}")
@@ -221,7 +199,6 @@ def train_rf_with_stratified_kfold(
     cm_ho = confusion_matrix(y_ho, y_ho_pred)
     cm_ho_list = cm_ho.tolist()
 
-    # 5) Top features
     if hasattr(final_clf, "feature_importances_"):
         importances = np.asarray(final_clf.feature_importances_)
         feature_names = np.array(X.columns)
@@ -230,7 +207,6 @@ def train_rf_with_stratified_kfold(
     else:
         top_features = list(X.columns)
 
-    # 6) Sauvegardes
     tag = "rf_stratkfold"
     model_path = MODELS / f"{tag}.joblib"
     joblib.dump(final_clf, model_path)
@@ -267,21 +243,19 @@ def train_rf_with_stratified_kfold(
         encoding="utf-8",
     )
 
-    # 7) Appel à la fonction de print custom
     print_report(
         train_acc=final_train_acc,
-        val_acc=mean_val_acc,      # on affiche la moyenne CV comme "val"
+        val_acc=mean_val_acc,     
         hold_acc=hold_acc,
         cm=cm_ho,
         clf_report=clf_rep_ho,
         top_features=top_features,
         X=X,
         X_tr_sel=X_cv,
-        X_va_sel=X_cv,             # pas de val unique : on met train_cv
+        X_va_sel=X_cv,            
         X_ho_sel=X_ho,
     )
 
-    # 8) Fichier best.json (ici on suppose que ce modèle devient le "best")
     best_for_json = {
         "key": tag,
         "acc": float(hold_acc),
@@ -307,7 +281,7 @@ def train_rf_with_stratified_kfold(
         "meta": meta,
     }
 
-
+ # Point d’entrée : préparation des données et lancement de l’entraînement
 def main() -> None:
     X_raw, y_onehot = load_data()
     X, y, ids = prepare_features_labels(X_raw, y_onehot)

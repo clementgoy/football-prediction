@@ -18,14 +18,15 @@ FEATS_PATH = MODELS_DIR / "rf_feature_importances.csv"
 SUBMISSION_PATH = MODELS_DIR / "submission_rf_optimized.csv"
 
 
+# Petit print formaté pour les infos
 def info(msg: str) -> None:
     print(f"\n[info] {msg}")
 
-
+# Petit print formaté pour dire tout est okay
 def ok(msg: str) -> None:
     print(f"[ok] {msg}")
 
-
+ # Charge la liste exacte des features utilisées par le RandomForest optimisé
 def load_expected_feature_list() -> List[str]:
     if not FEATS_PATH.exists():
         raise FileNotFoundError(
@@ -39,7 +40,7 @@ def load_expected_feature_list() -> List[str]:
         raise ValueError("Liste de features vide dans rf_feature_importances.csv.")
     return feats
 
-
+ # Charge le jeu de test et sépare les IDs des features numériques
 def load_test_data() -> Tuple[np.ndarray, pd.DataFrame]:
     if not TEST_X_PATH.exists():
         raise FileNotFoundError(f"Je trouve pas le fichier test : {TEST_X_PATH}")
@@ -58,7 +59,7 @@ def load_test_data() -> Tuple[np.ndarray, pd.DataFrame]:
     info(f"Test chargé : {len(X_num)} lignes à prédire.")
     return ids, X_num
 
-
+ # Pipeline complet : charge les données, prédit et génère la soumission
 def main() -> None:
     info("Lancement des prédictions (RandomForest optimisée)...")
 

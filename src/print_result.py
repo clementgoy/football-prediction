@@ -1,5 +1,6 @@
 import textwrap
 
+# Affiche un rapport d’évaluation complet pour comparer les performances
 def print_report(train_acc, val_acc, hold_acc, cm, clf_report, top_features, X, X_tr_sel, X_va_sel, X_ho_sel):
     print("\n" + "="*70)
     print("🏆 Rapport d’évaluation")

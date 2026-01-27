@@ -18,7 +18,7 @@ import joblib
 from src.print_result import print_report
 from src.features_diff import build_features_with_diff
 
-
+# Construit X et y (goal diff) à partir des CSV train + y_supp
 def build_Xy_goal_diff(train_csv: str, y_supp_csv: str):
 
     X_raw = pd.read_csv(train_csv)
@@ -46,7 +46,7 @@ def build_Xy_goal_diff(train_csv: str, y_supp_csv: str):
 
     return X, y, ids
 
-
+# Convertit l'écart de buts en 3 classes : Home(0) / Draw(1) / Away(2)
 def goal_diff_to_class(diff: np.ndarray) -> np.ndarray:
     diff = np.asarray(diff)
     cls = np.zeros_like(diff, dtype=int)
@@ -54,7 +54,7 @@ def goal_diff_to_class(diff: np.ndarray) -> np.ndarray:
     cls[diff == 0] = 1
     return cls
 
-
+# Zone "nul" autour de 0 pour mieux capter les draws
 def goal_diff_to_class_with_band(diff: np.ndarray, band: float = 0.5) -> np.ndarray:
 
     diff = np.asarray(diff)
@@ -63,7 +63,7 @@ def goal_diff_to_class_with_band(diff: np.ndarray, band: float = 0.5) -> np.ndar
     cls[np.abs(diff) <= band] = 1  # DRAW
     return cls
 
-
+# On apprend à prédire l’écart de buts entre l’équipe à domicile et l’équipe à l’extérieur, puis on choisit la bande nul autour de 0
 def train_lgbm_goal_diff_draw_focus(
     train_csv: str,
     y_supp_csv: str,
@@ -209,6 +209,7 @@ def train_lgbm_goal_diff_draw_focus(
     print(f"\n[ok] Modèle LightGBM goal_diff + band (focus draws) sauvegardé dans {out_path.resolve()}")
 
 
+# Point d’entrée : parse les args et lance l’entraînement
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(

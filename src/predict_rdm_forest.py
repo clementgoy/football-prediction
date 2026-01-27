@@ -22,12 +22,15 @@ HARD_LABELS = True
 # CSV modèle
 TEMPLATE_PATH: Optional[Path] = None
 
+# Petit print formaté pour les infos
 def info(msg: str) -> None:
     print(f"[info] {msg}")
 
+# Petit print formaté pour dire tout est okay
 def ok(msg: str) -> None:
     print(f"[ok] {msg}")
 
+# Encode les colonnes catégorielles en one-hot (et drop celles trop grosses)
 def _encode_categoricals(df: pd.DataFrame, max_cardinality: int = 50) -> pd.DataFrame:
     cat_cols = df.select_dtypes(include=["object", "category", "bool"]).columns.tolist()
     keep, drop = [], []
@@ -45,6 +48,7 @@ def _encode_categoricals(df: pd.DataFrame, max_cardinality: int = 50) -> pd.Data
         out = df_
     return out
 
+# Charge la liste des features attendues (même ordre que le modèle)
 def load_expected_feature_list() -> List[str]:
     if not FEATS_PATH.exists():
         raise FileNotFoundError(f"{FEATS_PATH} introuvable. Entraîne d'abord le modèle.")
@@ -56,6 +60,7 @@ def load_expected_feature_list() -> List[str]:
         raise ValueError("Liste de features vide dans rf_feature_importances.csv.")
     return feats
 
+# Construit X_test propre + aligné exactement sur les features du modèle
 def build_X_test(test_df: pd.DataFrame, expected_features: List[str], max_cardinality: int = 50) -> np.ndarray:
     if "ID" not in test_df.columns:
         raise ValueError("test_merged.csv doit contenir la colonne 'ID'.")
@@ -72,43 +77,29 @@ def build_X_test(test_df: pd.DataFrame, expected_features: List[str], max_cardin
     ok(f"X_test: {X_np.shape} (features alignées: {len(expected_features)})")
     return X_np
 
-def load_template_header(template_path: Path) -> Optional[List[str]]:
-    try:
-        df = pd.read_csv(template_path, nrows=0)
-        return df.columns.tolist()
-    except Exception as e:
-        info(f"Je n'arrive pas à lire le template ({e}) -> on utilise l'ordre par défaut.")
-        return None
-
+# Pipeline complet : charge données + modèle, prédit, et fait le fichier de soumission
 def main() -> None:
-    # charger test
     if not TEST_X_PATH.exists():
         raise FileNotFoundError(f"Fichier test introuvable : {TEST_X_PATH}")
     test = pd.read_csv(TEST_X_PATH, low_memory=False)
     ok(f"test_merged.csv chargé : {test.shape}")
 
-    # charger modèle
     if not MODEL_PATH.exists():
         raise FileNotFoundError(f"Modèle introuvable : {MODEL_PATH}")
     model = joblib.load(MODEL_PATH)
     ok(f"Modèle chargé : {MODEL_PATH.name}")
 
-    # features attendues
     expected_features = load_expected_feature_list()
 
-    # construire X_test
     X_test = build_X_test(test, expected_features, max_cardinality=50)
 
-    # prédire
     if not hasattr(model, "predict_proba"):
         raise ValueError("Le modèle ne supporte pas predict_proba(), c'est embêtant.")
     proba = model.predict_proba(X_test)  # (n, 3)
     if proba.shape[1] != 3:
         raise ValueError(f"Le modèle ne renvoie pas 3 classes (il en renvoie {proba.shape[1]}).")
 
-    # construire DataFrame de sortie
     if HARD_LABELS:
-        # argmax -> one-hot
         idx = proba.argmax(axis=1)
         onehot = np.zeros_like(proba, dtype=np.int8)
         onehot[np.arange(len(idx)), idx] = 1
@@ -119,7 +110,6 @@ def main() -> None:
             "AWAY_WINS": onehot[:, 2],
         })
     else:
-        # probabilités
         sub = pd.DataFrame({
             "ID": test["ID"].values,
             "HOME_WINS": proba[:, 0],
@@ -127,16 +117,11 @@ def main() -> None:
             "AWAY_WINS": proba[:, 2],
         })
 
-    # imposer l'ordre du template
-    if TEMPLATE_PATH is not None and TEMPLATE_PATH.exists():
-        cols = load_template_header(TEMPLATE_PATH)
-        needed = ["ID","HOME_WINS","DRAW","AWAY_WINS"]
-        if cols and set(needed).issubset(cols):
-            keep = [c for c in cols if c in sub.columns]
-            sub = sub.reindex(columns=keep)
+    sub = sub[["ID", "HOME_WINS", "DRAW", "AWAY_WINS"]]
 
-    # écrire CSV
-    sub = sub.astype({"HOME_WINS": "int8", "DRAW": "int8", "AWAY_WINS": "int8"})
+    if HARD_LABELS:
+        sub = sub.astype({"HOME_WINS": "int8", "DRAW": "int8", "AWAY_WINS": "int8"})
+
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     sub.to_csv(OUT_PATH, index=False)
     ok(f"Soumission écrite dans : {OUT_PATH}")

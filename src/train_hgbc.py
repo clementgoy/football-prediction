@@ -15,6 +15,7 @@ from src.utils import set_seeds
 from src.build_dataset import build_Xy
 from src.print_result import print_report
 
+ # Charge et prépare le train (merge + y aligné) en gardant uniquement les features numériques propres
 def load_train_processed():
     set_seeds(42)
     X_raw = pd.read_csv("data/processed/train_merged.csv")
@@ -27,6 +28,7 @@ def load_train_processed():
     X = X.select_dtypes(include=["number"]).astype("float32").fillna(0.0)
     return X, y
 
+ # Pipeline complet : split, nettoyage, entraînement HGB, métriques et sauvegarde des artifacts
 def main(config_path: str):
     X, y = load_train_processed()
 

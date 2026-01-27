@@ -7,7 +7,7 @@ import joblib
 
 from src.features_diff import build_features_with_diff, add_interaction_features
 
-
+# Prépare le jeu de test en reconstruisant les features exactement comme à l'entraînement
 def build_X_test_with_diff(
     test_csv: str,
     feature_columns: list[str],
@@ -33,7 +33,7 @@ def build_X_test_with_diff(
     print(f"[debug] X_test shape après alignement: {X.shape}")
     return ids, X
 
-
+ # Charge le modèle, prédit les probabilités et génère le fichier de soumission
 def predict_lgbm_multiclass_diff(
     test_csv: str,
     model_path: str,
@@ -97,7 +97,7 @@ def predict_lgbm_multiclass_diff(
     df_sub.to_csv(out_path, index=False)
     print(f"[ok] Fichier de soumission écrit dans: {out_path.resolve()}")
 
-
+ # Gère les arguments de la ligne de commande pour lancer la prédiction
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(

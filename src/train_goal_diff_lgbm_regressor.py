@@ -17,7 +17,7 @@ import joblib
 from src.print_result import print_report
 from src.features_diff import build_features_with_diff
 
-
+# Construit X + y en gardant l’ordre des IDs du train
 def build_Xy_goal_diff(train_csv: str, y_supp_csv: str):
 
     X_raw = pd.read_csv(train_csv)
@@ -45,7 +45,7 @@ def build_Xy_goal_diff(train_csv: str, y_supp_csv: str):
 
     return X, y, ids
 
-
+# Transforme un goal diff en classe Home/Draw/Away
 def goal_diff_to_class(diff: np.ndarray) -> np.ndarray:
 
     diff = np.asarray(diff)
@@ -54,7 +54,7 @@ def goal_diff_to_class(diff: np.ndarray) -> np.ndarray:
     cls[diff == 0] = 1
     return cls
 
-
+ # Zone autour de 0 pour dire "nul" quand c’est serré
 def goal_diff_to_class_with_band(diff: np.ndarray, band: float = 0.5) -> np.ndarray:
 
     diff = np.asarray(diff)
@@ -63,7 +63,7 @@ def goal_diff_to_class_with_band(diff: np.ndarray, band: float = 0.5) -> np.ndar
     cls[np.abs(diff) <= band] = 1  # DRAW
     return cls
 
-
+# Entraîne un regressor sur le goal diff puis choisit le meilleur band sur la validation
 def train_lgbm_goal_diff(
     train_csv: str,
     y_supp_csv: str,
@@ -202,7 +202,7 @@ def train_lgbm_goal_diff(
     )
     print(f"\n[ok] Modèle LightGBM goal_diff + band sauvegardé dans {out_path.resolve()}")
 
-
+ # Gère les arguments CLI pour lancer l’entraînement et sauvegarder le modèle
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(

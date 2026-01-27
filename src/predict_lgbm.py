@@ -8,6 +8,7 @@ import joblib
 CLASS_NAMES_TRAIN = ["HOME_WINS", "DRAW", "AWAY_WINS"]
 SUBMIT_COLS = ["HOME", "DRAW", "AWAY"]                  
 
+ # Gère les arguments passés en ligne de commande
 def parse_args():
     p = argparse.ArgumentParser(description="Predict with LightGBM model trained by train_lgbm.py.")
     p.add_argument("--test-csv", required=True, help="CSV test fusionné contenant la colonne ID.")
@@ -20,6 +21,7 @@ def parse_args():
                    help="Facteur multiplicatif sur la proba DRAW (ré-étalonnage facultatif).")
     return p.parse_args()
 
+# Force les features à être numériques et propres, comme pendant le train
 def coerce_numeric_like_train(df: pd.DataFrame, id_col: str) -> pd.DataFrame:
     out = df.copy()
     for c in out.columns:
@@ -32,6 +34,7 @@ def coerce_numeric_like_train(df: pd.DataFrame, id_col: str) -> pd.DataFrame:
     out[num_cols] = out[num_cols].astype("float32")
     return out
 
+ # Récupère la liste des features utilisées par le modèle
 def get_model_feature_names(model) -> list:
     if hasattr(model, "booster_") and model.booster_ is not None:
         names = list(model.booster_.feature_name())
@@ -41,6 +44,7 @@ def get_model_feature_names(model) -> list:
         return list(model.feature_name_)
     raise RuntimeError("Impossible de récupérer les noms de features du modèle (booster_.feature_name()).")
 
+ # Aligne le jeu de test sur l’ordre et les features attendues par le modèle
 def align_features_to_model(feats: pd.DataFrame, model_feature_names: list) -> pd.DataFrame:
     X = feats.copy()
     for c in model_feature_names:
@@ -49,6 +53,7 @@ def align_features_to_model(feats: pd.DataFrame, model_feature_names: list) -> p
     X = X[model_feature_names]
     return X
 
+ # Ajuste la probabilité du match nul si nécessaire
 def apply_draw_alpha(proba: np.ndarray, alpha: float) -> np.ndarray:
     if alpha == 1.0:
         return proba
@@ -57,6 +62,7 @@ def apply_draw_alpha(proba: np.ndarray, alpha: float) -> np.ndarray:
     p = p / p.sum(axis=1, keepdims=True)
     return p
 
+# Charge le modèle, prépare les données test et génère le fichier de soumission
 def main():
     args = parse_args()
 
