@@ -176,6 +176,28 @@ Cela crée data/processed/train_merged_pca.csv (et test_merged_pca.csv si le tes
 Ensuite, on peut effectuer l’entraînement normalement, RandomForest (fichier train_rf_pca.py) va utiliser ces CSV enrichis.
 
 
+## Precisions sur les methodes de random forest mises en place dans les fichiers d'entrainement (nous sommes conscients que les noms des fichiers ne sont pas toujours très parlants)
+
+- train_rdm_forest.py 
+Dans ce fichier on execute cherche à identifier les hyperparametres et les poids associés à la différence de buts (y_supp) qui permettent d'avoir les modèles avec les meilleurs performances. On identifie donc 3 scénarios de poids : 
+								- Chaque match a la même valeur dans l'entrainement
+								- Poids linéaire = 1 + beta * | diff buts| (avec beta = 0,25 par défaut)
+								- Poids exponentiel = max(exp(alpha * |diff buts|), cap) (avec alpha = 0,2 et cap =5 par défaut)
+Ensuite pour chacun de ces scénarios on fait une GridSearch pour essayer de trouver les meilleurs hyperparamètres. 
+
+- train_rdmf_upgrade_test.py
+Dans ce fichier on entraine 3 modèles (RandomForestClassifier, ExtratreesClassifier et HistGradientBoostingClassifier) afin de comparer leurs performances (les deux premiers sont assez similaires mais le dernier est vraiment différent dans le fonctionnement donc c'est intéressant). Les hyperparamètres sont fixés dans le code.
+
+- train_rf_pca.py
+Dans ce fichier on entraine un modèle de rf sur un fichier de données enrichies avec 10 colones supplémentaires créées en appliquant des PCA sur les données d'entrainement.
+
+- train_rf_noneWeights_best.py
+C'est notre entrainement qui avait donné le modèle avec la meilleur accuracy dans challenge data mais depuis il a été battu. Tous les matchs ont le même poids dans l'entrainement. Cet entrainement crée un modèle de random forest.
+
+- train_rf_optimized.py
+On entraine dans ce fichier un premier modèle de random forest sur toutes les features des données d'entrainement. Cela va servir à identifier les features les plus pertinentes, on ne va garder que les fs_top_k premières (800 par défaut) et on entraine un nouveau modèle de random forest dessus. Cela vise à essayer de réduire le bruit et voir si une selection comme celle là peut augmenter les performances du modèle.
+
+
 ## Auteurs
 
 Projet réalisé dans le cadre d’un challenge académique en intelligence artificielle par Clément GOY et Emma TREMLET

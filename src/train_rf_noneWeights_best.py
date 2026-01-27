@@ -75,14 +75,21 @@ def prepare_features_labels(
     dropped = len(feature_cols_all) - len(num_cols)
     if dropped > 0:
         info(f"On vire {dropped} colonnes qui ne sont pas des nombres.")
-
+    
     X_num = merged[num_cols].copy()
 
     # Imputation simple (remplacement des NaN par 0.0)
+    X_num = X_num.replace([np.inf, -np.inf], np.nan)
+
+    all_nan_cols = X_num.columns[X_num.isna().all(axis=0)]
+    if len(all_nan_cols) > 0:
+        info(f"On retire {len(all_nan_cols)} colonnes qui sont 100% NaN.")
+        X_num = X_num.drop(columns=all_nan_cols)
+
     imputer = SimpleImputer(strategy="constant", fill_value=0.0)
     X_imp = pd.DataFrame(
         imputer.fit_transform(X_num),
-        columns=num_cols,
+        columns=X_num.columns,   
         index=X_num.index,
     )
 
