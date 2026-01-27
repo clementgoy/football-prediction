@@ -36,9 +36,9 @@ def ok(msg: str) -> None:
 def load_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Charge X et y_onehot aligné sur les IDs de train."""
     if not X_PATH.exists():
-        raise FileNotFoundError(f"Je trouve pas : {X_PATH}")
+        raise FileNotFoundError(f"Je ne trouve pas : {X_PATH}")
     if not Y_ONEHOT_PATH.exists():
-        raise FileNotFoundError(f"Je trouve pas : {Y_ONEHOT_PATH}")
+        raise FileNotFoundError(f"Je ne trouve pas : {Y_ONEHOT_PATH}")
 
     info("On charge X ...")
     X = pd.read_csv(X_PATH, low_memory=False)
@@ -124,7 +124,7 @@ def train_random_forest(
     # Modèle
     clf = make_random_forest(random_state=random_state)
 
-    info("C'est parti pour l'entraînement (sans poids) ...")
+    info("On commence l'entraînement (sans poids) ...")
     clf.fit(X_tr, y_tr)
 
     # On regarde si ça marche bien sur la validation
@@ -224,7 +224,7 @@ def main() -> None:
     X_raw, y_onehot = load_data()
     X, y, ids = prepare_features_labels(X_raw, y_onehot)
 
-    info("--- Entraînement RandomForest avec poids = none ---")
+    info("Entraînement RandomForest avec poids = none")
     _ = train_random_forest(X, y, ids, random_state=42)
 
     ok("Terminé. Regarde le dossier 'models/' (rf_none.joblib + json).")

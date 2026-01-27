@@ -233,7 +233,7 @@ def main() -> None:
     METRICS_PATH.write_text(json.dumps(metrics, indent=2), encoding="utf-8")
     ok(f"Les scores sont sauvegardés dans {METRICS_PATH}")
 
-    info("Tout est fini ! On croise les doigts.")
+    info("Tout est fini !")
 
 
 if __name__ == "__main__":

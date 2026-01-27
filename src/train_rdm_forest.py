@@ -55,23 +55,23 @@ def ok(msg: str) -> None:
 # Data loaders
 def load_X() -> pd.DataFrame:
     if not TRAIN_X_PATH.exists():
-        raise FileNotFoundError(f"Je trouve pas X ici: {TRAIN_X_PATH}")
+        raise FileNotFoundError(f"Je ne trouve pas X ici: {TRAIN_X_PATH}")
     X = pd.read_csv(TRAIN_X_PATH, low_memory=False)
     ok(f"X chargé : {X.shape[0]} lignes × {X.shape[1]} colonnes")
     return X
 
 def load_y_and_supp() -> Tuple[pd.DataFrame, Optional[pd.DataFrame]]:
     if not Y_ALIGNED_PATH.exists():
-        raise FileNotFoundError(f"Je trouve pas Y : {Y_ALIGNED_PATH}")
+        raise FileNotFoundError(f"Je ne trouve pas Y : {Y_ALIGNED_PATH}")
     y = pd.read_csv(Y_ALIGNED_PATH, low_memory=False)
     ok(f"y_aligned chargé : {y.shape[0]} lignes × {y.shape[1]} cols")
 
     if Y_SUPP_PATH.exists():
         y_s = pd.read_csv(Y_SUPP_PATH, low_memory=False)
-        ok(f"y_supp_aligned trouvé (super, on a la différence de buts !) : {y_s.shape[0]} lignes")
+        ok(f"y_supp_aligned trouvé : {y_s.shape[0]} lignes")
     else:
         y_s = None
-        info("Pas de fichier de stats supplémentaires (y_train_supp_aligned.csv), tant pis.")
+        info("Pas de fichier de stats supplémentaires (y_train_supp_aligned.csv)")
     return y, y_s
 
 
@@ -119,7 +119,7 @@ def build_Xy_for_training(X: pd.DataFrame, y_like: pd.DataFrame, max_cardinality
     X_feat = feats_final.fillna(0.0).to_numpy(dtype=np.float32)
     y_class = one_hot_to_class(merged)
 
-    print(f"[ok] Features prêtes : {X_feat.shape[1]} colonnes "
+    print(f"ok Features prêtes : {X_feat.shape[1]} colonnes "
           f"(dont {num.shape[1]} numériques, le reste c'est du one-hot)")
     return X_feat, y_class, feature_names
 
@@ -175,7 +175,7 @@ def weights_from_margin(margin: np.ndarray, scheme: str, beta: float = 0.25,
 # Entraînement (une stratégie)
 def train_one_scenario(X_feat: np.ndarray, y_cls: np.ndarray, feature_names: List[str],
                        weights: np.ndarray, cfg: TrainConfig, run_name: str) -> Dict:
-    info(f"Découpage train/val pour le scénario {run_name} ...")
+    info(f"Découpage train/val pour le scénario {run_name}...")
     X_tr, X_val, y_tr, y_val, w_tr, w_val = train_test_split(
         X_feat, y_cls, weights,
         test_size=cfg.test_size,
@@ -184,7 +184,7 @@ def train_one_scenario(X_feat: np.ndarray, y_cls: np.ndarray, feature_names: Lis
     )
     ok(f"{run_name} | Train : {X_tr.shape}, Val : {X_val.shape}")
 
-    info(f"Recherche des meilleurs hyperparamètres (GridSearchCV) pour {run_name} ...")
+    info(f"Recherche des meilleurs hyperparamètres (GridSearchCV) pour {run_name}...")
     base_model = RandomForestClassifier(
         n_estimators=200,
         random_state=cfg.random_state,
@@ -204,7 +204,7 @@ def train_one_scenario(X_feat: np.ndarray, y_cls: np.ndarray, feature_names: Lis
     ok(f"{run_name} | Meilleurs params : {grid.best_params_} | Meilleur score CV : {grid.best_score_:.4f}")
     model: RandomForestClassifier = grid.best_estimator_
 
-    info(f"On teste sur la validation ({run_name}) ...")
+    info(f"On teste sur la validation ({run_name})...")
     y_pred = model.predict(X_val)
     acc = accuracy_score(y_val, y_pred)
     ok(f"{run_name} | Accuracy finale : {acc:.4f}")
@@ -244,7 +244,7 @@ def train_one_scenario(X_feat: np.ndarray, y_cls: np.ndarray, feature_names: Lis
 
     with open(MODELS_DIR / f"metrics_{run_name}.json", "w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2)
-    ok(f"{run_name} | On a tout noté dans models/metrics_{run_name}.json")
+    ok(f"{run_name} | Enregistré dans models/metrics_{run_name}.json")
 
     return {
         "run_name": run_name,
@@ -256,14 +256,14 @@ def train_one_scenario(X_feat: np.ndarray, y_cls: np.ndarray, feature_names: Lis
 
 
 def main(cfg: TrainConfig = TrainConfig()):
-    info("Chargement des données …")
+    info("Chargement des données...")
     X = load_X()
     y_all, y_supp = load_y_and_supp()
 
-    info("Préparation X, y …")
+    info("Préparation X, y...")
     X_feat, y_cls, feature_names = build_Xy_for_training(X, y_all, max_cardinality=cfg.max_cardinality)
 
-    info("Calcul des marges de victoire (pour pondérer les matchs) …")
+    info("Calcul des marges de victoire (pour pondérer les matchs)...")
     margin = compute_win_margin(y_all, y_supp)
 
     # On teste plusieurs stratégies de pondération
@@ -278,7 +278,7 @@ def main(cfg: TrainConfig = TrainConfig()):
 
     results = []
     for sc in scenarios:
-        info(f"=== Scénario en cours: {sc['run_name']} ===")
+        info(f"Scénario en cours: {sc['run_name']}")
         w = weights_from_margin(
             margin=margin,
             scheme=sc["scheme"],
@@ -288,7 +288,7 @@ def main(cfg: TrainConfig = TrainConfig()):
             cap=sc["cap"]
         )
         # Stats sur les poids
-        print(f"[ok] Poids pour {sc['run_name']} -> min={w.min():.3f} | median={np.median(w):.3f} | max={w.max():.3f}")
+        print(f"Ok Poids pour {sc['run_name']} -> min={w.min():.3f} | median={np.median(w):.3f} | max={w.max():.3f}")
 
         res = train_one_scenario(X_feat, y_cls, feature_names, w, cfg, run_name=sc["run_name"])
         results.append(res)
@@ -296,7 +296,7 @@ def main(cfg: TrainConfig = TrainConfig()):
     # Comparatif final
     comp = pd.DataFrame(results).sort_values("val_accuracy", ascending=False)
     comp.to_csv(MODELS_DIR / "weighting_compare.csv", index=False)
-    print("\n=== Résumé des résultats ===")
+    print("Résumé des résultats")
     print(comp)
 
     # On garde le meilleur modèle comme référence par défaut
@@ -307,10 +307,10 @@ def main(cfg: TrainConfig = TrainConfig()):
     # On le copie sous le nom générique 'random_forest.pkl'
     shutil.copyfile(best_model, MODELS_DIR / "random_forest.pkl")
     shutil.copyfile(best_imps,  MODELS_DIR / "rf_feature_importances.csv")
-    ok(f"Le gagnant est {best['run_name']} ! Je l'ai copié vers models/random_forest.pkl")
+    ok(f"Le gagnant est {best['run_name']} ! il a été copié vers models/random_forest.pkl")
     ok(f"Idem pour ses features : models/rf_feature_importances.csv")
 
-    info("Fin du job ! ✅")
+    info("Fin de l'entrainement !")
 
 
 if __name__ == "__main__":

@@ -278,7 +278,7 @@ def main() -> None:
     X, y, ids = prepare_features_labels(X_raw, y_onehot)
 
     for scheme in ["none", "linear025", "exp015"]:
-        info(f"--- On teste avec le schéma de poids : {scheme} ---")
+        info(f"On teste avec le schéma de poids : {scheme} ---")
         best = train_and_select(X, y, ids, y_supp, weight_scheme=scheme, random_state=42)
 
     ok("Tout est fini. Va voir dans 'models/' !")
