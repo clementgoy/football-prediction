@@ -12,7 +12,10 @@ from sklearn.impute import SimpleImputer
 from sklearn.ensemble import RandomForestClassifier
 import joblib
 
-from src.print_result import print_report
+from print_result import print_report
+
+import matplotlib.pyplot as plt
+from sklearn.tree import plot_tree
 
 
 HERE = Path(__file__).resolve().parent
@@ -99,6 +102,34 @@ def make_random_forest(random_state: int = 42) -> RandomForestClassifier:
     )
     return rf
 
+# Sauvegarde la visualisation d'un arbre de la forêt en PNG.
+def save_one_tree_plot(
+    rf: RandomForestClassifier,
+    feature_names: list[str],
+    out_path: Path,
+    tree_index: int = 0,
+    max_depth: int = 3,
+) -> None:
+    if not hasattr(rf, "estimators_") or len(rf.estimators_) == 0:
+        raise ValueError("Le RandomForest n'est pas entraîné (estimators_ manquant).")
+
+    tree = rf.estimators_[tree_index]
+
+    plt.figure(figsize=(24, 12))
+    plot_tree(
+        tree,
+        feature_names=feature_names,
+        filled=True,
+        rounded=True,
+        max_depth=max_depth,
+        fontsize=8,
+    )
+    plt.title(f"RandomForest — arbre #{tree_index} (max_depth={max_depth})")
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=200)
+    plt.close()
+
+
 
 def train_random_forest(
     X: pd.DataFrame,
@@ -122,6 +153,18 @@ def train_random_forest(
 
     info("Entraînemen RandomForest (sans poids) …")
     clf.fit(X_tr, y_tr)
+
+    # Sauvegarde d'un arbre en PNG
+    tag = "rf_pca"  # CHANGED
+    tree_png_path = MODELS / f"{tag}_tree0.png"
+    save_one_tree_plot(
+        rf=clf,
+        feature_names=list(X.columns),
+        out_path=tree_png_path,
+        tree_index=0,
+        max_depth=3,
+    )
+    ok(f"Arbre sauvegardé: {tree_png_path}")
 
     # Accuracy validation
     y_va_pred = clf.predict(X_va)
@@ -153,7 +196,6 @@ def train_random_forest(
         top_features = list(X.columns)
 
     # Sauvegardes
-    tag = "rf_pca" # CHANGED
     model_path = MODELS / f"{tag}.joblib"
     joblib.dump(clf, model_path)
     ok(f"Modèle sauvegardé: {model_path}")
