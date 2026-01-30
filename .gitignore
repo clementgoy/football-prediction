@@ -11,3 +11,5 @@ __pycache__/
 .env
 node_modules/
 *.joblib
+models/*.pkl
+models/**/*.pkl
