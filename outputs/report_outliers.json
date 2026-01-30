@@ -1,0 +1,172 @@
+{
+  "pca1_stats": {
+    "count": 12303.0,
+    "mean": 1.57089835102615e-16,
+    "std": 24.837123296842968,
+    "min": -65.46522834161074,
+    "25%": 2.263981638744699,
+    "50%": 8.47235630195157,
+    "75%": 13.023404082929082,
+    "max": 31.273464051964147
+  },
+  "count_outliers": 1459,
+  "count_normal": 10844,
+  "status": "Found outliers",
+  "suspicious_cols_top20": [
+    {
+      "col": "home_teamTEAM_SHOTS_INSIDEBOX_5_last_match_sum",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 3.8472683647102253
+    },
+    {
+      "col": "home_teamTEAM_PASSES_5_last_match_sum",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 3.853497866023381
+    },
+    {
+      "col": "home_teamTEAM_SUCCESSFUL_PASSES_PERCENTAGE_5_last_match_average",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 4.81135752064582
+    },
+    {
+      "col": "away_teamTEAM_SHOTS_INSIDEBOX_5_last_match_sum",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 4.0250092284976
+    },
+    {
+      "col": "away_teamTEAM_SHOTS_OUTSIDEBOX_5_last_match_sum",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 4.222560694175205
+    },
+    {
+      "col": "away_teamTEAM_SUCCESSFUL_PASSES_5_last_match_sum",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 3.857894251176525
+    },
+    {
+      "col": "away_teamTEAM_SHOTS_INSIDEBOX_5_last_match_average",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 3.993170911775563
+    },
+    {
+      "col": "away_teamTEAM_SHOTS_OUTSIDEBOX_5_last_match_average",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 4.19411113162267
+    },
+    {
+      "col": "away_teamTEAM_SUCCESSFUL_PASSES_5_last_match_average",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 3.841099935406478
+    },
+    {
+      "col": "away_teamTEAM_SHOTS_INSIDEBOX_5_last_match_std",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 3.8525362653608055
+    },
+    {
+      "col": "away_teamTEAM_SHOTS_OUTSIDEBOX_5_last_match_std",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 3.8333949362409907
+    },
+    {
+      "col": "away_teamTEAM_SUCCESSFUL_PASSES_5_last_match_std",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 3.948905109489051
+    },
+    {
+      "col": "home_player_PLAYER_DRIBBLED_ATTEMPTS_season_sum_sum",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 198.50627074880117
+    },
+    {
+      "col": "home_player_PLAYER_DRIBBLED_PAST_season_sum_sum",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 291.7918664699373
+    },
+    {
+      "col": "home_player_PLAYER_PENALTIES_COMMITTED_season_sum_sum",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 97.93009959424566
+    },
+    {
+      "col": "home_player_PLAYER_PENALTIES_COMMITTED_season_sum_mean",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 5.11884912822469
+    },
+    {
+      "col": "home_player_PLAYER_PENALTIES_COMMITTED_season_sum_std",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 13.648471510756
+    },
+    {
+      "col": "home_player_PLAYER_PENALTIES_SAVED_season_sum_sum",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 22.74225378089266
+    },
+    {
+      "col": "home_player_PLAYER_SUCCESSFUL_DRIBBLES_season_sum_sum",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 192.2705643673921
+    },
+    {
+      "col": "home_player_PLAYER_PUNCHES_season_sum_sum",
+      "reason": "Zeros",
+      "mean_out": 0.0,
+      "mean_norm": 14.617023238657323
+    }
+  ],
+  "suspicious_count": 248,
+  "target_dist_outliers": {
+    "HOME_WINS": 0.43865661411925977,
+    "AWAY_WINS": 0.3008910212474297,
+    "DRAW": 0.2604523646333105
+  },
+  "target_dist_normal": {
+    "HOME_WINS": 0.4348948727406861,
+    "AWAY_WINS": 0.3063445223164884,
+    "DRAW": 0.25876060494282555
+  },
+  "id_min_out": 12,
+  "id_max_out": 12301,
+  "string_cols_stats": {
+    "home_teamLEAGUE": {
+      "League One": 494,
+      "League Two": 492,
+      "Pro League": 392
+    },
+    "home_teamTEAM_NAME": {
+      "Anderlecht": 30,
+      "Antwerp": 29,
+      "Gent": 27
+    },
+    "away_teamLEAGUE": {
+      "League One": 494,
+      "League Two": 492,
+      "Pro League": 392
+    },
+    "away_teamTEAM_NAME": {
+      "Standard Liège": 29,
+      "Genk": 29,
+      "Anderlecht": 28
+    }
+  }
+}

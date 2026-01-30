@@ -256,7 +256,7 @@ def main() -> None:
     X_raw, y_onehot = load_data()
     X, y = prepare_features_labels(X_raw, y_onehot)
 
-    info(f"Entraînement multi-modèles ({RUN_TAG}) ---")
+    info(f"Entraînement multi-modèles ({RUN_TAG})")
     _ = train_and_select(X, y, random_state=42)
 
     ok("Terminé. Regarde le dossier 'models/' (json + joblib).")

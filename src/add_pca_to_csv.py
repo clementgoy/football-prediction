@@ -18,7 +18,7 @@ def main():
 
     print(f"Chargement des données en cours...")
     if not TRAIN_CSV.exists():
-        print(f"Erreur : le fichier {TRAIN_CSV} est introuvable (c'est bizarre).")
+        print(f"Erreur : le fichier {TRAIN_CSV} est introuvable.")
         sys.exit(1)
         
     train_df = pd.read_csv(TRAIN_CSV, low_memory=False)
@@ -29,7 +29,7 @@ def main():
         test_df = pd.read_csv(TEST_CSV, low_memory=False)
         print(f"Données de test chargées aussi : {test_df.shape}")
     else:
-        print(f"Attention : on n'a pas trouvé le fichier de test {TEST_CSV}. On continue sans.")
+        print(f"Attention : on n'a pas trouvé le fichier de test {TEST_CSV}.")
 
     # On sélectionne seulement les colonnes numériques pour faire le PCA donc on enlève les ID 
     # et tout ce qui n'est pas des chiffres et onn enlève aussi les cibles (targets)
@@ -41,7 +41,7 @@ def main():
     print(f"On a trouvé {len(feature_cols)} colonnes numériques pour faire notre ACP.")
     
     # Préparation des données
-    print("Mise à l'échelle (Scaling) et remplissage des trous (NaN)...")
+    print("Mise à l'échelle et remplissage des NaN...")
     
     # On remplace les trous par des 0 (peut-être à ameliorer plus tard)
     X_train = train_df[feature_cols].fillna(0.0)

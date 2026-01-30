@@ -61,9 +61,9 @@ def ok(msg: str) -> None:
 
 def load_data() -> Tuple[pd.DataFrame, np.ndarray]:
     if not TRAIN_X_PATH.exists():
-        raise FileNotFoundError(f"Je trouve pas le fichier X : {TRAIN_X_PATH}, bizarre...")
+        raise FileNotFoundError(f"Je trouve pas le fichier X : {TRAIN_X_PATH}...")
     if not Y_PATH.exists():
-        raise FileNotFoundError(f"Je trouve pas le fichier y : {Y_PATH}, bizarre...")
+        raise FileNotFoundError(f"Je trouve pas le fichier y : {Y_PATH}...")
 
     info("On charge les données (ça va vite)...")
     X = pd.read_csv(TRAIN_X_PATH, low_memory=False)
@@ -86,9 +86,9 @@ def load_data() -> Tuple[pd.DataFrame, np.ndarray]:
 
 
 def select_top_features(X: pd.DataFrame, y: np.ndarray, cfg: TrainConfig) -> List[str]:
-    info("Sélection des meilleures features (celles qui servent vraiment)...")
+    info("Sélection des meilleures features...")
 
-    # On lance un premier forêt "brouillon" pour voir quelles stats sont importantes
+    # On lance un premier forêt "brouillon" pour voir quelles colones sont les plus importantes
     rf_fs = RandomForestClassifier(
         n_estimators=cfg.fs_n_estimators,
         max_depth=cfg.fs_max_depth,
@@ -122,7 +122,7 @@ def select_top_features(X: pd.DataFrame, y: np.ndarray, cfg: TrainConfig) -> Lis
 def make_splits(
     X: pd.DataFrame, y: np.ndarray, cfg: TrainConfig
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, np.ndarray, np.ndarray, np.ndarray]:
-    info("Découpage en 3 morceaux : train / validation / hold-out (pour être sûr)...")
+    info("Découpage en 3 morceaux : train / validation / hold-out...")
 
     # On coupe d'abord un morceau 'hold-out' qu'on met de côté pour la fin
     X_trva, X_ho, y_trva, y_ho = train_test_split(
@@ -144,8 +144,8 @@ def make_splits(
     )
 
     info(
-        f"C'est coupé ! Train={len(X_tr)} | Val={len(X_va)} | Hold-out={len(X_ho)} "
-        f"(et y'a {X.shape[1]} colonnes)"
+        f"Train={len(X_tr)} | Val={len(X_va)} | Hold-out={len(X_ho)} "
+        f"(et il y a {X.shape[1]} colonnes)"
     )
     return X_tr, X_va, X_ho, y_tr, y_va, y_ho
 
@@ -167,7 +167,7 @@ def build_model(cfg: TrainConfig) -> RandomForestClassifier:
 
 
 def main() -> None:
-    info("Lancement de l'entraînement RandomForest (version optimisée) !")
+    info("Lancement de l'entraînement RandomForest")
 
     X, y = load_data()
 
@@ -207,7 +207,7 @@ def main() -> None:
         X_ho_sel=X_ho,
     )
 
-    info("Réentraînement sur TOUT (train + val) pour le modèle final...")
+    info("Réentraînement sur train + val pour le modèle final...")
     X_final = pd.concat([X_tr, X_va], axis=0)
     y_final = np.concatenate([y_tr, y_va])
 
@@ -215,7 +215,7 @@ def main() -> None:
     rf_final.fit(X_final, y_final)
 
     joblib.dump(rf_final, MODEL_OUT_PATH)
-    ok(f"Modèle final sauvegardé dans {MODEL_OUT_PATH} (c'est celui-là qu'on utilisera)")
+    ok(f"Modèle final sauvegardé dans {MODEL_OUT_PATH}")
 
     metrics = {
         "train_accuracy": float(train_acc),

@@ -120,7 +120,7 @@ def build_Xy_for_training(X: pd.DataFrame, y_like: pd.DataFrame, max_cardinality
     y_class = one_hot_to_class(merged)
 
     print(f"ok Features prêtes : {X_feat.shape[1]} colonnes "
-          f"(dont {num.shape[1]} numériques, le reste c'est du one-hot)")
+          f"(dont {num.shape[1]} numériques)")
     return X_feat, y_class, feature_names
 
 
@@ -166,7 +166,7 @@ def weights_from_margin(margin: np.ndarray, scheme: str, beta: float = 0.25,
     elif scheme == "exp":
         w = base + (np.expm1(alpha * margin)) * 1.0 
     else:
-        raise ValueError("Je connais que 'none', 'linear' ou 'exp' comme schémas.")
+        raise ValueError("On doit avoir que 'none', 'linear' ou 'exp' comme schémas.")
     if cap is not None:
         w = np.minimum(w, cap)
     return w.astype(float)
@@ -263,7 +263,7 @@ def main(cfg: TrainConfig = TrainConfig()):
     info("Préparation X, y...")
     X_feat, y_cls, feature_names = build_Xy_for_training(X, y_all, max_cardinality=cfg.max_cardinality)
 
-    info("Calcul des marges de victoire (pour pondérer les matchs)...")
+    info("Calcul des marges de victoire...")
     margin = compute_win_margin(y_all, y_supp)
 
     # On teste plusieurs stratégies de pondération
@@ -308,7 +308,7 @@ def main(cfg: TrainConfig = TrainConfig()):
     shutil.copyfile(best_model, MODELS_DIR / "random_forest.pkl")
     shutil.copyfile(best_imps,  MODELS_DIR / "rf_feature_importances.csv")
     ok(f"Le gagnant est {best['run_name']} ! il a été copié vers models/random_forest.pkl")
-    ok(f"Idem pour ses features : models/rf_feature_importances.csv")
+    ok(f"Pareil pour ses features : models/rf_feature_importances.csv")
 
     info("Fin de l'entrainement !")
 

@@ -40,11 +40,11 @@ def load_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
     if not Y_ONEHOT_PATH.exists():
         raise FileNotFoundError(f"Je ne trouve pas : {Y_ONEHOT_PATH}")
 
-    info("On charge X ...")
+    info("On charge X...")
     X = pd.read_csv(X_PATH, low_memory=False)
     ok(f"X: {X.shape[0]} lignes × {X.shape[1]} colonnes")
 
-    info("On charge y (one-hot) ...")
+    info("On charge y (one-hot)...")
     y1 = pd.read_csv(Y_ONEHOT_PATH, low_memory=False)
     ok(f"y_onehot: {y1.shape[0]} lignes × {y1.shape[1]} colonnes")
 
@@ -58,7 +58,7 @@ def prepare_features_labels(
     """Aligne X et y, encode la target en classes {0,1,2} et garde seulement les features numériques."""
     need = ["ID", "HOME_WINS", "DRAW", "AWAY_WINS"]
     if not set(need).issubset(y_onehot.columns):
-        raise ValueError("Il manque des colonnes importantes dans y_onehot (ID, HOME_WINS...)")
+        raise ValueError("Il manque des colonnes importantes dans y_onehot")
 
     merged = X.merge(y_onehot[need], on="ID", how="inner")
     ok(f"Fusion X et y OK : {merged.shape[0]} lignes")
@@ -74,7 +74,7 @@ def prepare_features_labels(
     num_cols = merged[feature_cols_all].select_dtypes(include=[np.number]).columns
     dropped = len(feature_cols_all) - len(num_cols)
     if dropped > 0:
-        info(f"On vire {dropped} colonnes qui ne sont pas des nombres.")
+        info(f"On vire {dropped} colonnes qui ne sont pas numeriques.")
     
     X_num = merged[num_cols].copy()
 
@@ -216,7 +216,7 @@ def train_random_forest(
         encoding="utf-8",
     )
 
-    ok(f"Meilleur modèle (unique) : rf (acc={val_acc:.4f}) → {model_path}")
+    ok(f"Meilleur modèle : rf (acc={val_acc:.4f}) → {model_path}")
 
     return {
         "clf": clf,
@@ -234,7 +234,7 @@ def main() -> None:
     info("Entraînement RandomForest avec poids = none")
     _ = train_random_forest(X, y, ids, random_state=42)
 
-    ok("Terminé. Regarde le dossier 'models/' (rf_none.joblib + json).")
+    ok("Terminé. Regarde le dossier 'models/'.")
 
 
 if __name__ == "__main__":
