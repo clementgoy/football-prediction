@@ -103,21 +103,24 @@ def main():
         print("Le modèle ne sait pas faire de probabilités.")
         sys.exit(1)
 
-    # 6. Création du fichier de soumission
-    print("Création du fichier de résultat...")
+    # 6. Création du fichier de soumission (format one-hot)
+    print("Création du fichier de résultat (one-hot)...")
+
+    # Classe prédite (0=HOME_WINS, 1=DRAW, 2=AWAY_WINS) si tu as encodé comme à l'entraînement
+    pred_class = np.argmax(proba, axis=1)
+
     submission = pd.DataFrame({
-        "ID": ids,
-        "HOME_WINS": proba[:, 0],
-        "DRAW": proba[:, 1],
-        "AWAY_WINS": proba[:, 2]
+        "ID": ids.astype(int),
+        "HOME_WINS": (pred_class == 0).astype(int),
+        "DRAW":      (pred_class == 1).astype(int),
+        "AWAY_WINS": (pred_class == 2).astype(int),
     })
-    
+
     out_path = Path(args.out_csv)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    
     submission.to_csv(out_path, index=False)
-    print(f"C'est gagné ! Fichier sauvegardé ici : {out_path}")
-    print("Tu peux maintenant l'envoyer sur la plateforme.")
+    print(f"Fichier one-hot sauvegardé ici : {out_path}")
+
 
 if __name__ == "__main__":
     main()
